@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Platforms>x86;x64</Platforms>
+        <RuntimeIdentifiers>win-x86;win-x64</RuntimeIdentifiers>
+        <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+        <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Platform)'=='x64'">
+        <AssemblyName>$(MSBuildProjectName)64</AssemblyName>
+        <PlatformTarget>x64</PlatformTarget>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Platform)'=='x86'">
+        <AssemblyName>$(MSBuildProjectName)</AssemblyName>
+        <PlatformTarget>x86</PlatformTarget>
+    </PropertyGroup>
+
+</Project>

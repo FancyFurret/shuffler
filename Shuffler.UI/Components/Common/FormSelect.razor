@@ -1,0 +1,38 @@
+@using Microsoft.AspNetCore.Components.Forms
+@typeparam TValue
+@inherits InputBase<TValue>
+
+<select @attributes="AdditionalAttributes"
+    class="w-full px-3 py-2 bg-background-700 border border-background-500 rounded-lg outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors @CssClass"
+    @bind="@CurrentValue" @bind:event="onchange">
+    @if (Options != null)
+    {
+        @foreach (var option in Options)
+        {
+            <option value="@option">@(OptionText?.Invoke(option) ?? option?.ToString())</option>
+        }
+    }
+    else
+    {
+        @ChildContent
+    }
+</select>
+
+@code {
+    [Parameter]
+    public RenderFragment? ChildContent { get; set; }
+
+    [Parameter]
+    public IEnumerable<TValue>? Options { get; set; }
+
+    [Parameter]
+    public Func<TValue, string>? OptionText { get; set; }
+
+    protected override bool TryParseValueFromString(string? value, out TValue result, out string validationErrorMessage)
+    {
+        // Since we're binding directly to TValue, we don't need to parse strings
+        result = default!;
+        validationErrorMessage = string.Empty;
+        return true;
+    }
+}

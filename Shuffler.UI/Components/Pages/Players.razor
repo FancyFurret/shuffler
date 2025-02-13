@@ -1,0 +1,100 @@
+@page "/players"
+
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@using Shuffler.Core.Models
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+@inject NavigationManager Navigation
+@inject ConfirmService Confirm
+
+<PageContent>
+    <DataGrid TItem="PlayerConfig" Title="Players" ItemName="Player" Items="@Config.Players" OnAdd="@AddPlayer"
+              OnEdit="@EditPlayer" OnDelete="@DeletePlayer">
+        <ChildContent>
+            <DataGridColumn Title="Avatar" Class="w-16">
+                <Template>
+                    <Avatar Player="@context"/>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Name" Property="@(p => p.Name)"/>
+            <DataGridColumn Title="Color" Class="w-32">
+                <Template>
+                    <div class="flex items-center">
+                        <div class="w-6 h-6 rounded-full" style="background: @context.Color"></div>
+                    </div>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Steam Profile" Property="@(p => p.SteamProfile!)"/>
+            <DataGridColumn Title="Discord ID" Property="@(p => p.DiscordUserId!)"/>
+        </ChildContent>
+        <CustomActions Context="player">
+            <CustomAction Action="() => NavigateToControllerLayouts(player)" Icon="puzzle-piece"
+                          Title="Controller Layouts"/>
+        </CustomActions>
+    </DataGrid>
+</PageContent>
+
+<PlayerDialog @ref="_dialog"/>
+
+@code {
+    private PlayerDialog? _dialog;
+
+    private void NavigateToControllerLayouts(PlayerConfig player)
+    {
+        Navigation.NavigateTo($"/controller-layouts/{Uri.EscapeDataString(player.Name)}");
+    }
+
+    private async Task AddPlayer()
+    {
+        if (_dialog is null) return;
+        var player = await _dialog.Show(new PlayerConfig
+        {
+            Name = "",
+            Color = PlayerColorPresets.All.First().Gradient
+        });
+        if (player is null) return;
+        Config.Players.Add(player);
+        await ConfigService.SaveAsync(Config);
+    }
+
+    private async Task EditPlayer(PlayerConfig player)
+    {
+        if (_dialog is null) return;
+
+        var originalPlayer = player;
+        var editPlayer = await _dialog.Show(new PlayerConfig
+        {
+            Name = player.Name,
+            Color = player.Color,
+            SteamProfile = player.SteamProfile,
+            DiscordUserId = player.DiscordUserId
+        }, true);
+
+        if (editPlayer is null) return;
+
+        var index = Config.Players.FindIndex(p => p == originalPlayer);
+        if (index != -1)
+        {
+            originalPlayer.Name = editPlayer.Name;
+            originalPlayer.Color = editPlayer.Color;
+            originalPlayer.SteamProfile = editPlayer.SteamProfile;
+            originalPlayer.DiscordUserId = editPlayer.DiscordUserId;
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+    private async Task DeletePlayer(PlayerConfig player)
+    {
+        if (!await Confirm.Confirm($"Are you sure you want to delete {player.Name}?", "Delete Player", isDestructive: true))
+            return;
+
+        var index = Config.Players.FindIndex(p => p.Name == player.Name);
+        if (index != -1)
+        {
+            Config.Players.RemoveAt(index);
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+}

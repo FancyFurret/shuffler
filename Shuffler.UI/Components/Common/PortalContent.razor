@@ -1,0 +1,25 @@
+@implements IDisposable
+
+@code {
+    [CascadingParameter] private Portal? Portal { get; set; }
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public Action<ElementReference>? OnReferenceSet { get; set; }
+
+    private Guid _portalId;
+
+    protected override void OnInitialized()
+    {
+        if (Portal != null)
+            _portalId = Portal.AddPortal(ChildContent, OnReferenceSet);
+    }
+
+    protected override void OnParametersSet()
+    {
+        Portal?.UpdatePortal(_portalId);
+    }
+
+    public void Dispose()
+    {
+        Portal?.RemovePortal(_portalId);
+    }
+}

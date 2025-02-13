@@ -1,0 +1,152 @@
+@using Blazor.Heroicons
+@using Shuffler.UI.Utilities
+
+@inherits VariantComponent<StyledButton.Slots>
+
+@code {
+    [Parameter] public string Text { get; set; } = "";
+    [Parameter] public string Icon { get; set; } = "";
+    [Parameter] public string IconClass { get; set; } = "";
+    [Parameter] public HeroiconType IconType { get; set; } = HeroiconType.Outline;
+    [Parameter] public string Style { get; set; } = "";
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public bool Selected { get; set; }
+    [Parameter] public bool LoadOnClick { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Default;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    [Parameter] public ButtonShape Shape { get; set; } = ButtonShape.Rounded;
+
+    public enum ButtonVariant
+    {
+        Default,
+        Primary,
+        Destructive,
+        Transparent,
+        None
+    }
+
+    public enum ButtonSize
+    {
+        Small,
+        Medium,
+        Large
+    }
+
+    public enum ButtonShape
+    {
+        Rounded,
+        Square,
+        Circle
+    }
+
+    public enum ButtonState
+    {
+        Disabled,
+        Loading,
+        Selected
+    }
+
+    public enum Slots
+    {
+        Icon
+    }
+
+    protected override IEnumerable<Enum> GetCurrentVariants()
+    {
+        List<Enum> states = [Variant, Size, Shape];
+        if (Disabled) states.Add(ButtonState.Disabled);
+        if (Loading) states.Add(ButtonState.Loading);
+        if (Selected) states.Add(ButtonState.Selected);
+        return states;
+    }
+
+    protected override Variants<Slots> CreateVariants()
+    {
+        return new()
+        {
+            Base = "relative transition-all inline-flex items-center justify-center gap-2",
+
+            [Slots.Icon] = "w-4 h-4",
+
+            [ButtonState.Disabled] = "pointer-events-none opacity-50",
+            [ButtonState.Loading] = "pointer-events-none",
+            [ButtonState.Selected] = "!bg-primary-500/50 !hover:bg-primary-500/50",
+
+            [ButtonVariant.Default] = "bg-background-700/50 hover:bg-background-600/50 text-foreground-300",
+            [ButtonVariant.Primary] = "bg-primary hover:bg-primary/70 text-primary-foreground",
+            [ButtonVariant.Destructive] = "bg-destructive hover:bg-destructive/70 text-destructive-foreground",
+            [ButtonVariant.Transparent] = "bg-transparent hover:bg-background-700/80 text-foreground-300 border border-background-700/80 hover:border-primary/50",
+            [ButtonVariant.None] = "",
+
+            [ButtonSize.Small] = "text-xs px-2 py-1",
+            [ButtonSize.Small, Slots.Icon] = "w-3 h-3",
+            [ButtonSize.Medium] = "text-sm px-4 py-2",
+            [ButtonSize.Medium, Slots.Icon] = "w-4 h-4",
+            [ButtonSize.Large] = "text-lg px-6 py-2",
+            [ButtonSize.Large, Slots.Icon] = "w-5 h-5",
+
+            [ButtonShape.Rounded] = "rounded-lg",
+            [ButtonShape.Square] = "rounded",
+            [ButtonShape.Circle] = "rounded-full",
+        };
+    }
+
+    private async Task HandleClick(MouseEventArgs e)
+    {
+        if (!Disabled && !Loading)
+        {
+            if (LoadOnClick && OnClick.HasDelegate)
+            {
+                var task = OnClick.InvokeAsync(e);
+                if (!task.IsCompleted)
+                {
+                    Loading = true;
+                    try
+                    {
+                        await task;
+                    }
+                    finally
+                    {
+                        Loading = false;
+                    }
+                }
+                else
+                {
+                    await task;
+                }
+            }
+            else
+            {
+                await OnClick.InvokeAsync(e);
+            }
+        }
+    }
+
+}
+
+<button type="@Type" @onclick="HandleClick" disabled="@(Disabled || Loading)" class="@BaseClass" style="@Style" title="@Title">
+    <div class="relative flex items-center justify-start">
+        <div class="@(Loading ? "invisible" : "") flex items-center justify-start gap-2">
+            @if (!string.IsNullOrEmpty(Icon))
+            {
+                <Heroicon Name="@Icon" Type="@IconType" class="@($"{SlotClass[Slots.Icon]} {IconClass}")" />
+            }
+            @if (!string.IsNullOrEmpty(Text))
+            {
+                <span>@Text</span>
+            }
+            @ChildContent
+        </div>
+        @if (Loading)
+        {
+            <div class="absolute inset-0 flex items-center justify-center">
+                <Spinner Class="@($"{SlotClass[Slots.Icon]} text-current")" />
+            </div>
+        }
+    </div>
+</button>

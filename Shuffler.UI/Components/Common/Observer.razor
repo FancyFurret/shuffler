@@ -1,0 +1,35 @@
+@typeparam T
+@implements IDisposable
+
+@if (_value != null)
+{
+    @ChildContent(_value)
+}
+
+@code {
+    [Parameter, EditorRequired]
+    public Core.IObservable<T> Observable { get; set; } = null!;
+
+    [Parameter, EditorRequired]
+    public RenderFragment<T> ChildContent { get; set; } = null!;
+
+    private T? _value;
+    private IDisposable? _subscription;
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+        _value = Observable.Value;
+        _subscription = Observable.AddObserver(value =>
+        {
+            _value = value;
+            InvokeAsync(StateHasChanged);
+        });
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        GC.SuppressFinalize(this);
+    }
+}

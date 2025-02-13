@@ -1,0 +1,207 @@
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using Shuffler.UI.Services
+@implements IDisposable
+@inject ShufflerCore Core
+@inject AvatarService AvatarService
+@inject HomeStateService HomeState
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+
+<!--suppress CssUnresolvedCustomProperty -->
+<div class="relative group cursor-pointer @(!Player.IsActive ? "opacity-50" : "")" @onclick="OnSelect"
+    @oncontextmenu:preventDefault @oncontextmenu="OnRightClick">
+    <!-- Remove Button -->
+    <div class="absolute -top-2 -right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-20"
+        @onclick:stopPropagation>
+        <StyledButton OnClick="OnRemove" Icon="x-mark" Size="ButtonSize.Small" Shape="ButtonShape.Circle"
+            Class="!p-1 !bg-destructive-800/80" />
+    </div>
+
+    <!-- Main Card -->
+    <div class="p-3 rounded-lg transition-all duration-300 ease-in-out backdrop-blur-sm relative
+                @(Player.IsActive ? "bg-background-800/40" : "bg-background-800/50")">
+        <!-- Gradient Border -->
+        <div class="absolute inset-0 rounded-lg p-[2px] -z-10 overflow-hidden">
+            <div class="absolute inset-0 bg-gradient-to-br will-change-[opacity] transition-opacity duration-300 ease-in-out
+                        @(Player.IsActive ? "opacity-100" : "opacity-80 group-hover:opacity-100")"
+                style="background: @Player.Config.Color">
+            </div>
+        </div>
+
+        <!-- Background -->
+        <div class="absolute inset-[2px] rounded-lg -z-10 will-change-[background] transition-all duration-300 ease-in-out"
+            style="@(Player.IsActive ? $"background: rgb(17 17 17 / 0.85)" : "background: rgb(17 17 17 / 0.95)")">
+        </div>
+
+        <!-- Content -->
+        <div class="flex items-center gap-3">
+            <!-- Icon/Avatar -->
+            <div class="relative">
+                <div class="icon-container w-12 h-12 rounded-lg flex items-center justify-center bg-background-700/50 backdrop-blur-sm overflow-hidden
+                           @(Player.IsActive ? "border-opacity-30" : "")"
+                    style="--player-gradient: @Player.Config.Color">
+                    <Avatar Player="@Player.Config" Class="w-full h-full" />
+                </div>
+                @if (Player.IsActive)
+                {
+                    <div class="absolute -top-1 -right-1 w-4 h-4 rounded-full border-2 border-background-800 animate-pulse"
+                        style="background: @Player.Config.Color">
+                    </div>
+                }
+            </div>
+
+            <!-- Info -->
+            <div class="flex-1 min-w-0">
+                <div class="font-medium truncate @(Player.IsActive ? "text-foreground-50" : "")">@Player.Config.Name
+                </div>
+                <div class="text-sm truncate @(Player.IsActive ? "text-foreground-300" : "text-foreground-400")">
+                    @if (Player.AssignedController != null)
+                    {
+                        <span>@Player.AssignedController.Name</span>
+                    }
+                    else
+                    {
+                        <span class="@(Player.IsActive ? "text-foreground-400" : "text-foreground-500")">-</span>
+                    }
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="mt-2 flex gap-2" @onclick:stopPropagation>
+            @if (Player.AssignedController != null)
+            {
+                <StyledButton OnClick="OnRemoveController" Text="Remove Controller" Size="ButtonSize.Small"
+                    Shape="ButtonShape.Square" Class="flex-1" />
+            }
+            else
+            {
+                <StyledButton OnClick="OnAssignController" Disabled="@_isWaitingForInput"
+                    Text="@(_isWaitingForInput ? "Press Any Button..." : "Assign Controller")" Size="ButtonSize.Small"
+                    Shape="ButtonShape.Square" Class="flex-1">
+                    @if (_isWaitingForInput)
+                    {
+                        <div class="w-2 h-2 rounded-full bg-foreground-400/50 animate-ping"></div>
+                    }
+                </StyledButton>
+            }
+            <PopupMenu @ref="_menu" IsActive="@Player.IsActive">
+                <PopupMenuItem Text="Change Color" Icon="swatch" OnClick="@OnChangeColor" />
+                <PopupMenuItem Text="Swap Player" Icon="arrows-right-left" OnClick="@OnSwapPlayer" />
+                <PopupMenuItem Text="Test Vibration" Icon="signal" OnClick="@(() => Core.TestVibration(Player))"
+                    Visible="@(Player.AssignedController != null)" />
+                <PopupMenuItem Text="@(Player.IsActive ? "Disable Player" : "Enable Player")"
+                    Icon="@(Player.IsActive ? "pause" : "play")" OnClick="@(() => Core.TogglePlayerActive(Player))" />
+            </PopupMenu>
+        </div>
+    </div>
+</div>
+
+<ColorPickerPopup @ref="_colorPicker" />
+<PlayerPickerPopup @ref="_playerPicker" />
+
+<style>
+    /* Icon Container */
+    .icon-container {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+    }
+
+    .icon-container::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        background: var(--player-gradient);
+        opacity: 0.3;
+        filter: blur(5px);
+        z-index: -1;
+    }
+</style>
+
+@code {
+    private bool _isWaitingForInput;
+    private CancellationTokenSource? _waitCts;
+    private PopupMenu? _menu;
+    private ColorPickerPopup? _colorPicker;
+    private PlayerPickerPopup? _playerPicker;
+
+    [Parameter] public required SessionPlayer Player { get; set; }
+    [Parameter] public EventCallback<SessionPlayer> OnSelectPlayer { get; set; }
+
+    private void OnSelect()
+    {
+        OnSelectPlayer.InvokeAsync(Player);
+    }
+
+    private void OnRemove()
+    {
+        Core.RemovePlayer(Player);
+        HomeState.UpdateLastUsedPlayers(Core.Session.Value.Players.Select(p => p.Config));
+    }
+
+    private void OnRightClick(MouseEventArgs e)
+    {
+        _menu?.Show((int)e.ClientX, (int)e.ClientY);
+    }
+
+    private async Task OnChangeColor(MouseEventArgs e)
+    {
+        if (_colorPicker != null)
+        {
+            var preset = await _colorPicker.Show((int)e.ClientX, (int)e.ClientY);
+            if (preset == null) return;
+            
+            Player.Config.Color = preset.Gradient;
+            await ConfigService.SaveAsync(Config);
+            
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnAssignController()
+    {
+        try
+        {
+            _isWaitingForInput = true;
+            _waitCts?.Cancel();
+            _waitCts = new CancellationTokenSource();
+
+            var result = await Core.WaitForControllerInput(_waitCts.Token);
+            if (result != null)
+                if (Core.AssignController(Player, result.Controller))
+                    await Core.TestSuccessVibration(Player);
+        }
+        finally
+        {
+            _isWaitingForInput = false;
+            _waitCts?.Dispose();
+            _waitCts = null;
+            StateHasChanged();
+        }
+    }
+
+    private void OnRemoveController()
+    {
+        Core.UnassignController(Player);
+        StateHasChanged();
+    }
+
+    private async Task OnSwapPlayer(MouseEventArgs e)
+    {
+        if (_playerPicker != null)
+        {
+            var config = await _playerPicker.Show((int)e.ClientX, (int)e.ClientY);
+            if (config == null) return;
+            
+            Player.Config = config;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _waitCts?.Cancel();
+        _waitCts?.Dispose();
+    }
+}

@@ -1,0 +1,135 @@
+@implements IAsyncDisposable
+@using Shuffler.UI.Extensions
+@inject IJSRuntime Js
+
+<style>
+    .positioned-overlay-content {
+        animation: overlay-fade-in 0.15s ease-out forwards;
+    }
+
+    .positioned-overlay-content.closing {
+        animation: overlay-fade-out 0.1s ease-in forwards;
+    }
+
+    @@keyframes overlay-fade-in {
+        from {
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+
+    @@keyframes overlay-fade-out {
+        from {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        to {
+            opacity: 0;
+            transform: scale(0.95);
+        }
+    }
+</style>
+
+<div @ref="_marker" class="w-0 h-0 absolute"></div>
+
+@if (_isVisible)
+{
+    <ClickBlocker OnClick="Hide" ZIndex="z-40" />
+    <PortalContent>
+        <div class="relative z-50 positioned-overlay-content" @ref="_contentRef">
+            @ChildContent
+        </div>
+    </PortalContent>
+}
+
+@code {
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public string? CustomAnimationClass { get; set; }
+
+    private IJSObjectReference? _module;
+    private ElementReference? _marker;
+    private ElementReference? _contentRef;
+    private bool _isVisible;
+    private bool _needsPositionUpdate;
+    private int? _x;
+    private int? _y;
+
+    public void Toggle()
+    {
+        if (_isVisible)
+        {
+            _ = Hide();
+        }
+        else
+        {
+            Show();
+        }
+    }
+
+    public void Show()
+    {
+        _isVisible = true;
+        _needsPositionUpdate = true;
+        StateHasChanged();
+    }
+
+    public void Show(int x, int y)
+    {
+        _isVisible = true;
+        _x = x;
+        _y = y;
+        _needsPositionUpdate = true;
+        StateHasChanged();
+    }
+
+    public async Task Hide()
+    {
+        if (!_isVisible) return;
+
+        if (_contentRef.HasValue)
+        {
+            await _contentRef.Value.TryAddClass(CustomAnimationClass ?? "closing", Js);
+            await Task.Delay(100);
+        }
+
+        _isVisible = false;
+        StateHasChanged();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _module = await Js.InvokeAsync<IJSObjectReference>("import", "./Components/Common/Popup.razor.js");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_isVisible && _contentRef.HasValue && _needsPositionUpdate)
+        {
+            await UpdatePosition();
+            _needsPositionUpdate = false;
+        }
+    }
+
+    private async Task UpdatePosition()
+    {
+        if (_module != null && _contentRef.HasValue && _marker.HasValue)
+            await _module.InvokeVoidAsync("positionContent", _contentRef, _marker, _x, _y);
+        _x = null;
+        _y = null;
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        if (_isVisible)
+            await Hide();
+
+        if (_module is not null)
+            await _module.DisposeAsync();
+    }
+}

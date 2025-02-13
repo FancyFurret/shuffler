@@ -1,0 +1,98 @@
+@typeparam T
+@using System.Diagnostics.CodeAnalysis
+@using Shuffler.UI.Utilities
+@using Microsoft.AspNetCore.Components.Forms
+
+@inherits InputBase<T>
+
+<style>
+    /* Hide spinner arrows */
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+</style>
+
+@{
+    var variants = new Variants<Slots>
+    {
+        Base = "w-full bg-background-700 border border-background-500 rounded-lg outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors",
+
+        [Size.Small] = "px-2 py-1 text-xs",
+        [Size.Medium] = "px-3 py-2 text-sm",
+        [Size.Large] = "px-4 py-3 text-base",
+    };
+}
+
+<input type="number" @attributes="AdditionalAttributes"
+    class="@variants.GetClass(CssClass, Size)" @bind="CurrentValue" @bind:event="oninput" />
+
+@code {
+    [Parameter] public Size Size { get; set; } = Size.Medium;
+
+    public enum Slots { }
+
+    protected override bool TryParseValueFromString(string? value, out T result,
+    [NotNullWhen(false)] out string? validationErrorMessage)
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            if (typeof(T) == typeof(int?))
+            {
+                result = default!;
+                validationErrorMessage = null;
+                return true;
+            }
+            result = default!;
+            validationErrorMessage = "Value is required";
+            return false;
+        }
+
+        try
+        {
+            // Handle different numeric types
+            if (typeof(T) == typeof(ulong))
+            {
+                if (ulong.TryParse(value, out var ulongResult))
+                {
+                    result = (T)(object)ulongResult;
+                    validationErrorMessage = null;
+                    return true;
+                }
+            }
+            else if (typeof(T) == typeof(int))
+            {
+                if (int.TryParse(value, out var intResult))
+                {
+                    result = (T)(object)intResult;
+                    validationErrorMessage = null;
+                    return true;
+                }
+            }
+            else if (typeof(T) == typeof(int?))
+            {
+                if (int.TryParse(value, out var intResult))
+                {
+                    result = (T)(object)intResult;
+                    validationErrorMessage = null;
+                    return true;
+                }
+            }
+
+            result = default!;
+            validationErrorMessage = $"The {DisplayName ?? FieldIdentifier.FieldName} field must be a valid number.";
+            return false;
+        }
+        catch
+        {
+            result = default!;
+            validationErrorMessage = $"The {DisplayName ?? FieldIdentifier.FieldName} field must be a valid number.";
+            return false;
+        }
+    }
+}

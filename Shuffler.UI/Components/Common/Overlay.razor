@@ -1,0 +1,42 @@
+@implements IDisposable
+
+<CascadingValue Value="this" IsFixed="true">
+    @ChildContent
+</CascadingValue>
+
+@if (IsVisible)
+{
+    <div style="position: fixed; left: 0; right: 0; top: 0; bottom: 0; z-index: 30; background-color: red" @onclick="OnClick"></div>
+}
+
+@code {
+    private bool IsVisible;
+    private Action Callback;
+
+    [Parameter] public RenderFragment ChildContent { get; set; }
+
+    public void Show(Action onClickCallback)
+    {
+        IsVisible = true;
+        Callback = onClickCallback;
+        StateHasChanged();
+    }
+
+    public void Hide()
+    {
+        IsVisible = false;
+        Callback = null;
+        StateHasChanged();
+    }
+
+    private void OnClick()
+    {
+        Callback?.Invoke();
+    }
+
+    public void Dispose()
+    {
+        Callback = null;
+    }
+
+}

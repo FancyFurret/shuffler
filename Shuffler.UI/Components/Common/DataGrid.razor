@@ -1,0 +1,87 @@
+@attribute [CascadingTypeParameter(nameof(TItem))]
+@typeparam TItem
+@using Blazor.Heroicons
+
+<div class="flex flex-col gap-4">
+    <!-- Header with Title and Actions -->
+    <div class="flex items-center justify-between">
+        <h2 class="text-2xl font-bold">@Title</h2>
+        @if (OnAdd.HasDelegate)
+        {
+            <StyledButton OnClick="OnAdd" Icon="plus" Text=@($"Add {ItemName}") />
+        }
+    </div>
+
+    <!-- Table -->
+    <div class="relative overflow-x-auto rounded-lg border border-background-700/50">
+        <table class="w-full text-sm">
+            <thead class="bg-background-800/40 backdrop-blur-sm text-foreground-300">
+                <tr>
+                    <CascadingValue Value="@_columns" IsFixed="true">
+                        @ChildContent
+                    </CascadingValue>
+                    @if (HasActions)
+                    {
+                        <th class="px-4 py-3 text-right w-24">Actions</th>
+                    }
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-background-700/50">
+                @foreach (var item in Items)
+                {
+                    <tr class="bg-background-800/40 backdrop-blur-sm hover:bg-background-700/40 transition-colors"
+                        @key="item">
+                        <CascadingValue Value="@item" Name="@nameof(DataGridColumn<TItem>.CurrentItem)" IsFixed="true">
+                            @ChildContent
+                        </CascadingValue>
+                        @if (HasActions)
+                        {
+                            <td class="px-4 py-3 text-right">
+                                <div class="flex items-center justify-end gap-2">
+                                    @CustomActions?.Invoke(item)
+                                    @if (OnEdit.HasDelegate)
+                                    {
+                                        <CustomAction Action="() => OnEdit.InvokeAsync(item)" Icon="pencil-square" Title="Edit" />
+                                    }
+                                    @if (OnDelete.HasDelegate)
+                                    {
+                                        <CustomAction Action="() => OnDelete.InvokeAsync(item)" Icon="trash" Title="Delete"
+                                            Class="text-error hover:text-error-400" />
+                                    }
+                                </div>
+                            </td>
+                        }
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@code {
+    public class Column
+    {
+        public required string Title { get; set; }
+        public required RenderFragment<TItem> Template { get; set; }
+        public string? Class { get; set; }
+        public bool IsBooleanColumn { get; set; }
+    }
+
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public required string ItemName { get; set; }
+    [Parameter] public required IEnumerable<TItem> Items { get; set; }
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public EventCallback OnAdd { get; set; }
+    [Parameter] public EventCallback<TItem> OnEdit { get; set; }
+    [Parameter] public EventCallback<TItem> OnDelete { get; set; }
+    [Parameter] public RenderFragment<TItem>? CustomActions { get; set; }
+
+    private List<DataGridColumn<TItem>> _columns = new();
+
+    private bool HasActions => OnEdit.HasDelegate || OnDelete.HasDelegate || CustomActions != null;
+
+    protected override void OnInitialized()
+    {
+        _columns = new List<DataGridColumn<TItem>>();
+    }
+}

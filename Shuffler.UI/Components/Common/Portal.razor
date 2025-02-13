@@ -1,0 +1,84 @@
+@implements IDisposable
+
+<CascadingValue Value="this" IsFixed="true">
+    @ChildContent
+
+    <div class="fixed inset-0 pointer-events-none z-50">
+        <div class="pointer-events-auto">
+            @foreach (var content in _portals)
+            {
+                <div @ref="content.Reference" class="pointer-events-auto" @key="content.Id">
+                    @content.Content
+                </div>
+            }
+        </div>
+    </div>
+</CascadingValue>
+
+@code {
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+
+    private bool _isLoaded;
+    private List<PortalEntry> _portals = [];
+
+    private class PortalEntry
+    {
+        public Guid Id { get; set; }
+        public required RenderFragment Content { get; set; }
+        public ElementReference Reference { get; set; }
+        public Action<ElementReference>? OnReferenceSet { get; set; }
+        public bool CalledSetReference { get; set; }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _isLoaded = true;
+            StateHasChanged();
+        }
+
+        foreach (var entry in _portals.Where(entry => !entry.CalledSetReference))
+        {
+            entry.CalledSetReference = true;
+            entry.OnReferenceSet?.Invoke(entry.Reference);
+        }
+    }
+
+    public Guid AddPortal(RenderFragment content, Action<ElementReference>? onReferenceSet = null)
+    {
+        var entry = new PortalEntry
+        {
+            Id = Guid.NewGuid(),
+            Content = content,
+            OnReferenceSet = onReferenceSet,
+            CalledSetReference = false
+        };
+        _portals.Add(entry);
+        InvokeAsync(StateHasChanged);
+        return entry.Id;
+    }
+
+    public void UpdatePortal(Guid id)
+    {
+        var entry = _portals.FirstOrDefault(p => p.Id == id);
+        if (entry != null)
+            InvokeAsync(StateHasChanged);
+    }
+
+    public void RemovePortal(Guid id)
+    {
+        var entry = _portals.FirstOrDefault(p => p.Id == id);
+        if (entry != null)
+        {
+            _portals.Remove(entry);
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    public void Dispose()
+    {
+        _portals.Clear();
+        GC.SuppressFinalize(this);
+    }
+}

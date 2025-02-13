@@ -1,0 +1,107 @@
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@using Blazor.Heroicons
+
+@inject AvatarService AvatarService
+
+<div class="@GetContainerClasses() relative">
+    @if (_isLoading)
+    {
+        <div class="absolute inset-0 flex items-center justify-center animate-pulse">
+            <Heroicon Name="user" Type="HeroiconType.Solid" class="w-3/5 h-3/5 text-primary" />
+        </div>
+    }
+    else if (_hasError || string.IsNullOrEmpty(_avatarUrl))
+    {
+        <div class="absolute inset-0 flex items-center justify-center">
+            <Heroicon Name="user" Type="HeroiconType.Solid" class="w-3/5 h-3/5 text-primary" />
+        </div>
+    }
+    else
+    {
+        <img src="@_avatarUrl" alt="@Player.Name" class="absolute inset-0 w-full h-full object-cover" />
+    }
+</div>
+
+@code {
+    [Parameter] public required PlayerConfig Player { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public bool Large { get; set; }
+
+    private bool _isLoading;
+    private bool _hasError;
+    private string? _avatarUrl;
+    private string? _lastSteamProfile;
+    private ulong? _lastDiscordId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _avatarUrl = AvatarService.GetAvatarUrl(Player, Large);
+        
+        if (string.IsNullOrEmpty(_avatarUrl))
+        {
+            await LoadAvatarAsync();
+        }
+        else
+        {
+            _lastSteamProfile = Player.SteamProfile;
+            _lastDiscordId = Player.DiscordUserId;
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        _avatarUrl = AvatarService.GetAvatarUrl(Player, Large);
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // If Steam profile has a value and hasn't changed, don't refresh
+        if (!string.IsNullOrEmpty(_lastSteamProfile) && _lastSteamProfile == Player.SteamProfile)
+            return;
+
+        // If Steam profile has changed or is empty, and Discord has changed
+        if (_lastSteamProfile != Player.SteamProfile ||
+        (string.IsNullOrEmpty(Player.SteamProfile) && _lastDiscordId != Player.DiscordUserId))
+        {
+            await LoadAvatarAsync();
+        }
+    }
+
+    private async Task LoadAvatarAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _hasError = false;
+            StateHasChanged();
+
+            await AvatarService.UpdatePlayerAvatarAsync(Player);
+            _avatarUrl = AvatarService.GetAvatarUrl(Player, Large);
+
+            _lastSteamProfile = Player.SteamProfile;
+            _lastDiscordId = Player.DiscordUserId;
+        }
+        catch
+        {
+            _hasError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetContainerClasses()
+    {
+        var classes = new List<string>
+{
+"rounded-lg overflow-hidden bg-background-700/50 aspect-square",
+Class ?? ""
+};
+
+        return string.Join(" ", classes.Where(c => !string.IsNullOrEmpty(c)));
+    }
+
+}

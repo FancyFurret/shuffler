@@ -1,0 +1,62 @@
+@page "/presets"
+
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using Shuffler.UI.Services
+@using Shuffler.UI.Components.Common
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+@inject ConfirmService Confirm
+
+<PageContent>
+    <DataGrid TItem="ShufflerPreset" Title="Presets" ItemName="Preset" Items="@Config.Presets" OnDelete="@DeletePreset">
+        <ChildContent>
+            <DataGridColumn Title="Name" Property="@(p => p.Name)" />
+            <DataGridColumn Title="Games">
+                <Template>
+                    <div class="flex flex-wrap gap-2">
+                        @{
+                            var visibleGames = context.Games.Take(4);
+                            var remainingCount = context.Games.Count - 4;
+                        }
+                        @foreach (var game in visibleGames)
+                        {
+                            <div class="flex items-center gap-2 px-2 py-1 rounded bg-background-700/30">
+                                <GameImage Game="@game.GameConfig" Class="w-4 h-4" />
+                                <span class="text-sm">@game.GameConfig.Name</span>
+                            </div>
+                        }
+                        @if (remainingCount > 0)
+                        {
+                            <div class="flex items-center px-2 py-1 rounded bg-background-700/30">
+                                <span class="text-sm text-foreground-400">+@remainingCount more</span>
+                            </div>
+                        }
+                    </div>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Shuffle Time">
+                <Template>
+                    <div class="text-sm">
+                        @context.MinShuffleTime - @context.MaxShuffleTime seconds
+                    </div>
+                </Template>
+            </DataGridColumn>
+        </ChildContent>
+    </DataGrid>
+</PageContent>
+
+@code {
+    private async Task DeletePreset(ShufflerPreset preset)
+    {
+        if (!await Confirm.Confirm($"Are you sure you want to delete {preset.Name}?", "Delete Preset", isDestructive: true))
+            return;
+
+        var index = Config.Presets.IndexOf(preset);
+        if (index != -1)
+        {
+            Config.Presets.RemoveAt(index);
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+}

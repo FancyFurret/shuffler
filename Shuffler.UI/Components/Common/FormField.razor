@@ -1,0 +1,30 @@
+@attribute [CascadingTypeParameter(nameof(TData))]
+@typeparam TData
+@typeparam TValue
+@using System.Linq.Expressions
+
+<div class="@Class">
+    <label class="block text-sm font-medium mb-1">
+        @Label
+        @if (Required)
+        {
+            <span class="text-destructive-500">*</span>
+        }
+    </label>
+    @ChildContent
+    @if (HelpText != null)
+    {
+        <p class="mt-1 text-sm text-foreground-400">@HelpText</p>
+    }
+    <ValidationMessage For="@For" class="text-destructive-500 text-sm" />
+</div>
+
+@code {
+    [CascadingParameter] public TData Model { get; set; } = default!;
+    [Parameter] public required string Label { get; set; }
+    [Parameter] public required Expression<Func<TValue>> For { get; set; }
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public bool Required { get; set; }
+    [Parameter] public string Class { get; set; } = string.Empty;
+}

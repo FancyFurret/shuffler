@@ -1,0 +1,19 @@
+@page "/404"
+@page "/not-found"
+@namespace Shuffler.UI.Components.Pages
+
+<div class="min-h-[calc(100vh-8rem)] flex items-center justify-center">
+    <div class="flex flex-col items-center gap-8">
+        <div
+            class="text-9xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-pink-500 text-transparent bg-clip-text bg-[length:200%_200%] animate-gradient">
+            404
+        </div>
+        <div class="text-2xl text-foreground-500">
+            Oops! This page doesn't exist.
+        </div>
+        <a href="/"
+            class="px-6 py-3 rounded-lg bg-background-700/50 hover:bg-background-700/70 transition-all duration-150">
+            Take me home
+        </a>
+    </div>
+</div>

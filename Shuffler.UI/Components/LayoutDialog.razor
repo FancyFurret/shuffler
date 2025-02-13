@@ -1,0 +1,219 @@
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using System.ComponentModel.DataAnnotations
+@inject ShufflerCore Core
+@inject ShufflerConfig Config
+
+@inherits DialogFormBase<ControllerLayout, LayoutDialog.LayoutFormModel>
+
+<DialogForm TData="LayoutFormModel" @ref="DialogForm" RecordName="Layout" Class="flex flex-col">
+    <FormField Label="Game" Required For="@(() => context.GameId)" Class="flex-shrink-0">
+        <StyledButton OnClick="ShowGamePicker" Variant="ButtonVariant.Default" Class="w-full justify-start">
+            @{
+                var selectedGame = Config.Games.FirstOrDefault(g => g.Name == context.GameId);
+            }
+            @if (selectedGame != null)
+            {
+                <GameImage Game="@selectedGame" Class="w-6 h-6 shrink-0 mr-2"/>
+                <span>@selectedGame.Name</span>
+            }
+            else
+            {
+                <span class="text-foreground-400">Select a game...</span>
+            }
+        </StyledButton>
+    </FormField>
+
+    <div class="mt-4 flex-1 min-h-0 flex flex-col overflow-auto">
+        <h3 class="text-lg font-medium mb-2 flex-shrink-0">Button Remaps</h3>
+        <ValidationMessage For="@(() => context.Remaps)" class="text-destructive-500 text-sm"/>
+        <div class="flex-1 min-h-0 overflow-y-auto pr-2 max-h-[calc(75vh-15rem)]">
+            <div class="space-y-2">
+                @foreach (var (remap, index) in context.Remaps.Select((r, i) => (r, i)))
+                {
+                    <div class="flex items-center gap-2">
+                        <div class="flex-1">
+                            <StyledButton OnClick="() => StartButtonInput(remap, true)" Class="w-full"
+                                          Variant="ButtonVariant.Transparent">
+                                @if (_waitingForInput && _currentRemap == remap && _isSource)
+                                {
+                                    <span class="text-foreground-400">Press any button...</span>
+                                }
+                                else
+                                {
+                                    <span>@(remap.Source?.GetDisplayName() ?? "Not Set")</span>
+                                }
+                            </StyledButton>
+                        </div>
+                        <div class="text-foreground-400">→</div>
+                        <div class="flex-1">
+                            <StyledButton OnClick="() => StartButtonInput(remap, false)" Class="w-full"
+                                          Variant="ButtonVariant.Transparent">
+                                @if (_waitingForInput && _currentRemap == remap && !_isSource)
+                                {
+                                    <span class="text-foreground-400">Press any button...</span>
+                                }
+                                else
+                                {
+                                    <span>@(remap.Target?.GetDisplayName() ?? "Not Set")</span>
+                                }
+                            </StyledButton>
+                        </div>
+                        <StyledButton OnClick="() => RemoveRemap(remap)" Icon="x-mark"
+                                      Variant="ButtonVariant.Transparent"
+                                      Class="text-foreground-400 hover:text-foreground-300"/>
+                    </div>
+                    <ValidationMessage For="@(() => context.Remaps[index])"/>
+                }
+            </div>
+        </div>
+
+        <StyledButton OnClick="AddRemap" Type="button" Class="mt-2 w-full" Variant="ButtonVariant.Transparent"
+                      Text="Add Remap" Icon="plus"/>
+    </div>
+</DialogForm>
+
+<GamePickerPopup @ref="_gamePicker"
+                 Games="@Config.Games.Where(g => !Config.ControllerLayouts.Any(cl => cl.GameId == g.Name && cl.PlayerId == _playerId))"/>
+
+@code {
+
+    public class LayoutFormModel : IValidatableObject
+    {
+        [Required(ErrorMessage = "Game is required")]
+        public string GameId { get; set; } = "";
+
+        public List<ButtonRemapUi> Remaps { get; set; } = [];
+
+        public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+        {
+            if (Remaps.Count == 0)
+            {
+                yield return new ValidationResult(
+                    "At least one remap is required",
+                    [nameof(Remaps)]
+                );
+                yield break;
+            }
+
+            // Validate that all buttons are set
+            var invalidRemaps = Remaps.Where(r => !r.Source.HasValue || !r.Target.HasValue).ToList();
+            if (invalidRemaps.Any())
+            {
+                yield return new ValidationResult(
+                    "All button remaps must have both source and target buttons set.",
+                    [nameof(Remaps)]
+                );
+            }
+        }
+    }
+
+    public class ButtonRemapUi
+    {
+        public ControllerButton? Source { get; set; }
+        public ControllerButton? Target { get; set; }
+
+        public ButtonRemap ToButtonRemap()
+        {
+            if (!Source.HasValue || !Target.HasValue)
+                throw new InvalidOperationException("Cannot convert to ButtonRemap when Source or Target is not set");
+
+            return new ButtonRemap
+            {
+                Source = Source.Value,
+                Target = Target.Value
+            };
+        }
+
+        public static ButtonRemapUi FromButtonRemap(ButtonRemap remap)
+        {
+            return new ButtonRemapUi
+            {
+                Source = remap.Source,
+                Target = remap.Target
+            };
+        }
+    }
+
+    private string _playerId = "";
+    private bool _waitingForInput;
+    private bool _isSource;
+    private ButtonRemapUi? _currentRemap;
+    private CancellationTokenSource? _waitCts;
+    private GamePickerPopup? _gamePicker;
+
+    private void AddRemap()
+    {
+        Model!.Remaps.Add(new ButtonRemapUi());
+        StateHasChanged();
+    }
+
+    private void RemoveRemap(ButtonRemapUi remap)
+    {
+        Model!.Remaps.Remove(remap);
+        StateHasChanged();
+    }
+
+    private async Task StartButtonInput(ButtonRemapUi remap, bool isSource)
+    {
+        try
+        {
+            _waitingForInput = true;
+            _isSource = isSource;
+            _currentRemap = remap;
+            _waitCts?.Cancel();
+            _waitCts = new CancellationTokenSource();
+
+            var result = await Core.WaitForControllerInput(_waitCts.Token);
+            if (result != null)
+            {
+                if (isSource) remap.Source = result.Button;
+                else remap.Target = result.Button;
+            }
+        }
+        finally
+        {
+            _waitingForInput = false;
+            _currentRemap = null;
+            _waitCts?.Dispose();
+            _waitCts = null;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _waitCts?.Cancel();
+        _waitCts?.Dispose();
+    }
+
+    private async Task ShowGamePicker()
+    {
+        var game = await _gamePicker!.Show();
+        if (game == null || Model == null) return;
+
+        Model.GameId = game.Name;
+        StateHasChanged();
+    }
+
+    protected override LayoutFormModel ToModel(ControllerLayout data)
+    {
+        _playerId = data.PlayerId;
+        return new LayoutFormModel
+        {
+            GameId = data.GameId,
+            Remaps = data.Remaps.Select(ButtonRemapUi.FromButtonRemap).ToList()
+        };
+    }
+
+    protected override ControllerLayout ToData(LayoutFormModel model)
+    {
+        return new ControllerLayout
+        {
+            PlayerId = _playerId,
+            GameId = model.GameId,
+            Remaps = model.Remaps.Select(ui => ui.ToButtonRemap()).ToList()
+        };
+    }
+
+}

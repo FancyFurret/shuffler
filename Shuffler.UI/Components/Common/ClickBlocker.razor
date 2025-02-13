@@ -1,0 +1,12 @@
+<PortalContent>
+    <div class="fixed inset-0 pointer-events-none @ZIndex">
+        <div class="absolute inset-0 pointer-events-auto @Class" @onclick="OnClick" @oncontextmenu:preventDefault
+            @oncontextmenu="OnClick"></div>
+    </div>
+</PortalContent>
+
+@code {
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public string ZIndex { get; set; } = "z-10";
+}

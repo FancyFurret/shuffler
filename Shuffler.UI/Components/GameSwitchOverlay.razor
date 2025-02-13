@@ -1,0 +1,435 @@
+@using Blazor.Heroicons
+@using Blazor.Heroicons.Solid
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@implements IDisposable
+
+@inject AvatarService AvatarService
+
+<Styles />
+
+<div class="overlay-container">
+    <div class="overlay-content">
+        <!-- Animated Background Elements -->
+        <div class="background-elements">
+            <div class="diagonal-lines"></div>
+            <div class="hex-grid"></div>
+            <div class="glow-orbs"></div>
+        </div>
+
+        <div class="space-y-8 relative z-10">
+            <!-- Title -->
+            <div class="text-center title-rotate w-full">
+                <div class="title-pulse">
+                    <h1 class="title-text text-8xl font-black tracking-widest">
+                        SWAPPY TIME!
+                    </h1>
+                </div>
+            </div>
+
+            <!-- Current Switch Info -->
+            <div class="flex items-center justify-center gap-8 w-full">
+                <div class="flex items-center gap-8 max-w-4xl">
+                    <div class="icon-container p-6 bg-background-700/50 rounded-2xl backdrop-blur-sm">
+                        <img src="@AvatarService.GetAvatarUrl(CurrentPlayer)" alt="@CurrentPlayer.Name"
+                            class="w-32 h-32 rounded-xl" />
+                    </div>
+                    <div>
+                        <h2 class="text-7xl font-bold tracking-wider text-white glitch-text">
+                            @CurrentPlayer.Name
+                        </h2>
+                        <div class="text-4xl text-foreground-400 mt-4 typing-text-container">
+                            <span class="typing-text">@CurrentGame</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @if (ShowNextGame)
+            {
+                <!-- Next Game Info -->
+                <div class=" border-t border-background-700/50 pt-8 mt-6 w-full">
+                    <div class="mx-auto w-full">
+                        <h3 class="text-5xl text-foreground-400 mb-4">Next Up</h3>
+                        <div class="flex items-center justify-between w-full">
+                            <!-- Next Game Preview -->
+                            <div class="flex items-center gap-6">
+                                <div class="icon-container p-4 bg-background-700/50 rounded-xl backdrop-blur-sm">
+                                    <img src="@AvatarService.GetAvatarUrl(NextPlayer)" alt="@NextPlayer.Name"
+                                        class="w-28 h-28 rounded-lg" />
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="text-3xl font-medium truncate glitch-text">@NextPlayer.Name</div>
+                                    <div class="text-xl text-foreground-400 typing-text-container">
+                                        <span class="typing-text">@NextGame</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Timer -->
+                            <div class="flex flex-col items-end gap-2">
+                                <span class="text-3xl text-foreground-400">Next Swap</span>
+                                <span class="text-6xl font-bold text-foreground-300 font-mono tracking-wider">@($"{_currentTimeLeft / 60}:{_currentTimeLeft % 60:D2}")</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .overlay-container {
+        width: 100%;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent !important;
+        position: fixed;
+        top: 0;
+        left: 0;
+    }
+
+    .overlay-content {
+        padding: 3rem;
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.95), rgba(20, 20, 20, 0.95));
+        border-radius: 2rem;
+        box-shadow:
+            20px 20px 75px color-mix(in srgb, var(--color-gradient-2) 30%, transparent),
+            -20px -20px 75px color-mix(in srgb, var(--color-gradient-1) 30%, transparent);
+        backdrop-filter: blur(8px);
+        position: relative;
+        overflow: hidden;
+        min-width: 65%;
+        max-width: 95%;
+        max-height: 90vh;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        animation: contentPulse 0.2s ease-in-out 0.2s;
+        margin: auto;
+    }
+
+    /* Background Elements */
+    .background-elements {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+    }
+
+    .diagonal-lines {
+        position: absolute;
+        inset: -100% -100%;
+        background: repeating-linear-gradient(45deg,
+                var(--color-gradient-1) 0%,
+                transparent 2px,
+                transparent 50px);
+        animation: moveDiagonal 2s linear infinite;
+        opacity: 0.1;
+    }
+
+    .hex-grid {
+        position: absolute;
+        inset: -50% -50%;
+        background-image: radial-gradient(var(--color-gradient-2) 2px,
+                transparent 2px);
+        background-size: 40px 40px;
+        animation: rotateHex 30s linear infinite;
+        opacity: 0.1;
+    }
+
+    .glow-orbs {
+        position: absolute;
+        inset: 0;
+    }
+
+    .glow-orbs::before,
+    .glow-orbs::after {
+        content: '';
+        position: absolute;
+        width: 500px;
+        height: 500px;
+        border-radius: 50%;
+        filter: blur(120px);
+        animation: moveOrbs 1s ease-in-out infinite;
+        opacity: 0.4;
+    }
+
+    .glow-orbs::before {
+        background: var(--color-gradient-1);
+        top: -250px;
+        left: -250px;
+    }
+
+    .glow-orbs::after {
+        background: var(--color-gradient-2);
+        bottom: -250px;
+        right: -250px;
+        animation-delay: -5s;
+    }
+
+    /* Title Animation */
+    .title-text {
+        background: linear-gradient(to right, var(--color-gradient-1), var(--color-gradient-2), var(--color-gradient-1));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        background-size: 200% 100%;
+        animation: gradient-fast 3.0s linear infinite;
+        animation: gradient-fast 3.0s linear infinite, glow-fast 3.0s linear infinite;
+        text-shadow: 0 0 2px var(--color-gradient-1);
+    }
+
+    .title-pulse {
+        animation: titlePulse 1s ease-in-out infinite;
+    }
+
+    .title-rotate {
+        animation: titleRotate 1.4s ease-in-out infinite;
+    }
+
+    @@keyframes titlePulse {
+
+        0%,
+        100% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.2);
+        }
+    }
+
+    @@keyframes titleRotate {
+
+        0%,
+        100% {
+            transform: rotate(-5deg);
+        }
+
+        50% {
+            transform: rotate(5deg);
+        }
+    }
+
+    /* Progress Bar */
+    .progress-bar {
+        background: linear-gradient(90deg, var(--color-gradient-1), var(--color-gradient-2));
+        background-size: 200% 100%;
+        animation: progress 3s ease infinite;
+        box-shadow: 0 0 10px var(--color-gradient-2);
+    }
+
+    .progress-container {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* Icon Container */
+    .icon-container {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+    }
+
+    .icon-container::before {
+        content: '';
+        position: absolute;
+        inset: -1px;
+        background: linear-gradient(45deg, var(--color-gradient-1), var(--color-gradient-2));
+        opacity: 0.3;
+        filter: blur(5px);
+        z-index: -1;
+    }
+
+    /* Animations */
+    @@keyframes gradient-fast {
+        0% {
+            background-position: 0% 50%;
+        }
+
+        100% {
+            background-position: 200% 50%;
+        }
+    }
+
+    @@keyframes moveDiagonal {
+        0% {
+            transform: translate(0, 0);
+        }
+
+        100% {
+            transform: translate(100px, -100px);
+        }
+    }
+
+    @@keyframes rotateHex {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    @@keyframes moveOrbs {
+
+        0%,
+        100% {
+            transform: translate(0, 0);
+        }
+
+        50% {
+            transform: translate(30px, 30px);
+        }
+    }
+
+    .animate-slide-in {
+        animation: none;
+    }
+
+    @@keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    .glitch-text {
+        position: relative;
+        animation: glitch 3s infinite;
+    }
+
+    @@keyframes glitch {
+
+        0%,
+        90%,
+        100% {
+            transform: translate(0);
+            text-shadow: none;
+        }
+
+        91% {
+            transform: translate(-2px, 2px);
+            text-shadow: 2px 0 #ec4899, -2px 0 #9333ea;
+        }
+
+        93% {
+            transform: translate(2px, -2px);
+            text-shadow: -2px 0 #ec4899, 2px 0 #9333ea;
+        }
+
+        95% {
+            transform: translate(-2px, 2px);
+            text-shadow: 2px 0 #9333ea, -2px 0 #ec4899;
+        }
+    }
+
+    .typing-text-container {
+        display: inline-block;
+    }
+
+    .typing-text {
+        display: inline-block;
+        overflow: hidden;
+        border-right: 2px solid transparent;
+        animation: typing 0.6s steps(30, end), blink 0.75s step-end infinite;
+        white-space: nowrap;
+    }
+
+    @@keyframes typing {
+        from {
+            width: 0
+        }
+
+        to {
+            width: 100%
+        }
+    }
+
+    @@keyframes blink {
+
+        from,
+        to {
+            border-color: transparent
+        }
+
+        50% {
+            border-color: rgba(236, 72, 153, 0.5);
+        }
+    }
+
+    @@keyframes glow-fast {
+        0% {
+            text-shadow: 0 0 50px var(--color-gradient-1);
+        }
+
+        50% {
+            text-shadow: 0 0 50px var(--color-gradient-2);
+        }
+
+        100% {
+            text-shadow: 0 0 50px var(--color-gradient-1);
+        }
+    }
+
+    /* Add new keyframes for content pulse */
+    @@keyframes contentPulse {
+        0% {
+            transform: scale(1);
+        }
+        50% {
+            transform: scale(1.01);
+        }
+        100% {
+            transform: scale(1);
+        }
+    }
+</style>
+
+@code {
+    [Parameter]
+    public string CurrentGame { get; set; } = "";
+
+    [Parameter]
+    public PlayerConfig CurrentPlayer { get; set; } = new();
+
+    [Parameter]
+    public string NextGame { get; set; } = "";
+
+    [Parameter]
+    public PlayerConfig NextPlayer { get; set; } = new();
+
+    [Parameter]
+    public int TimeLeft { get; set; } = 0;
+
+    [Parameter]
+    public int TotalTime { get; set; } = 300;
+
+    [Parameter]
+    public bool ShowNextGame { get; set; } = true;
+
+    private System.Threading.Timer? _timer;
+    private int _currentTimeLeft;
+
+    protected override void OnInitialized()
+    {
+        _currentTimeLeft = TimeLeft;
+        _timer = new System.Threading.Timer(_ =>
+        {
+            _currentTimeLeft = Math.Max(0, _currentTimeLeft - 1);
+            InvokeAsync(StateHasChanged);
+        }, null, 0, 1000);
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+
+    private double GetProgressPercentage() => (_currentTimeLeft * 100.0) / TotalTime;
+}

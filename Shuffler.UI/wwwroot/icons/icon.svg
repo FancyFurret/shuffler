@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background circle with gradient -->
+    <circle cx="256" cy="256" r="240" fill="url(#gradient)" />
+    
+    <!-- Shuffle arrows -->
+    <path d="M156 186C186 156 226 146 256 146C286 146 326 156 356 186M356 326C326 356 286 366 256 366C226 366 186 356 156 326" 
+          stroke="white" stroke-width="40" stroke-linecap="round"/>
+    
+    <!-- Arrow heads -->
+    <path d="M146 186L166 146L196 196" fill="white"/>
+    <path d="M366 326L346 366L316 316" fill="white"/>
+    
+    <!-- Gradient definition -->
+    <defs>
+        <linearGradient id="gradient" x1="0" y1="0" x2="512" y2="512" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" style="stop-color:#ff0d6e"/>
+            <stop offset="100%" style="stop-color:#ffd700"/>
+        </linearGradient>
+    </defs>
+</svg> 

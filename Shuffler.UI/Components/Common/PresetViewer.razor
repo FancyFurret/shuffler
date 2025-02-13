@@ -1,0 +1,382 @@
+﻿@using System.ComponentModel.DataAnnotations
+@using Shuffler.Core
+@using Blazor.Heroicons
+@using Shuffler.Core.Models
+@using Shuffler.UI.Services
+
+@inject HomeStateService HomeState
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+@inject ConfirmService ConfirmService
+@inject ShufflerCore Shuffler
+
+@inherits ObserverComponent
+
+<div class="flex-shrink-0 border-b border-background-700/50 backdrop-blur-xl bg-background-900/60 p-4">
+    <Form TData="ShufflerPreset" Model="@CurrentPreset" Buttons="false" OnValidSubmit="@SavePreset">
+        <div class="flex items-center justify-between gap-4">
+            <div class="flex items-center gap-4 flex-1">
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-medium">
+                        @CurrentPreset.Name
+                    </h2>
+                    @if (CurrentPresetId != null)
+                    {
+                        <button @onclick="ShowRenameDialog" type="button"
+                                class="text-foreground-400 hover:text-foreground-300 transition-colors"
+                                title="Rename Preset">
+                            <Heroicon Name="pencil-square" Type="HeroiconType.Mini" class="w-4 h-4"/>
+                        </button>
+                    }
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <StyledButton Icon="folder-open" IconType="HeroiconType.Solid" Variant="ButtonVariant.Default"
+                              OnClick="ShowLoadPresetDialog">
+                    Load Preset
+                </StyledButton>
+                <StyledButton Icon="plus" IconType="HeroiconType.Solid" Variant="ButtonVariant.Default"
+                              OnClick="ShowNewPresetDialog">
+                    New Preset
+                </StyledButton>
+                <StyledButton Icon="@(HasChanges ? "paper-airplane" : "check")" IconType="HeroiconType.Solid"
+                              Variant="@(HasChanges ? ButtonVariant.Primary : ButtonVariant.Default)"
+                              Disabled="!HasChanges"
+                              Type="submit">
+                    @(CurrentPreset?.Id == null ? "Save as Preset" : HasChanges ? "Save Changes" : "Saved")
+                </StyledButton>
+                @if (HasChanges && CurrentPresetId != null)
+                {
+                    <StyledButton Icon="arrow-uturn-left" IconType="HeroiconType.Solid"
+                                  Variant="ButtonVariant.Default"
+                                  OnClick="RevertChanges" Shape="ButtonShape.Circle" Class="!p-1.5"
+                                  title="Reset Changes"/>
+                }
+            </div>
+        </div>
+
+        <div class="mt-4 flex items-start gap-6">
+            <div class="w-40">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-foreground-400">Min Time:</label>
+                    <NumberInput @bind-Value="CurrentPreset.MinShuffleTime" Class="w-20"
+                                 @onchange="() => HomeState.SetHasChanges()"/>
+                </div>
+                <ValidationMessage For="@(() => CurrentPreset.MinShuffleTime)"
+                                   class="text-destructive-500 text-xs mt-1"/>
+            </div>
+            <div class="w-40">
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-foreground-400">Max Time:</label>
+                    <NumberInput @bind-Value="CurrentPreset.MaxShuffleTime" Class="w-20"
+                                 @onchange="() => HomeState.SetHasChanges()"/>
+                </div>
+                <ValidationMessage For="@(() => CurrentPreset.MaxShuffleTime)"
+                                   class="text-destructive-500 text-xs mt-1"/>
+            </div>
+        </div>
+
+        <ValidationMessage For="@(() => CurrentPreset.Name)" class="text-destructive-500 text-sm mt-2"/>
+        <ValidationMessage For="@(() => CurrentPreset.Games)" class="text-destructive-500 text-sm mt-1"/>
+    </Form>
+</div>
+
+<!-- Games Content -->
+<div class="flex-1 overflow-hidden">
+    <PageContent Title="Games">
+        <div class="grid grid-cols-[repeat(auto-fill,180px)] gap-6 justify-evenly p-2">
+            @foreach (var presetGame in CurrentPreset.Games)
+            {
+                var sessionGame = Session.Games.FirstOrDefault(g => g.Process.Config.Name ==
+                                                                    presetGame.GameConfig.Name);
+                if (sessionGame != null)
+                {
+                    <div class="flex flex-col gap-2 group/game" @key="presetGame">
+                        <div class="relative">
+                            <GameCard Game="sessionGame.Process"/>
+                            <div
+                                class="absolute -top-2 -right-2 opacity-0 group-hover/game:opacity-100 transition-opacity duration-300 z-20">
+                                <StyledButton OnClick="() => RemoveGame(presetGame)" Icon="x-mark"
+                                              Size="ButtonSize.Small" Shape="ButtonShape.Circle"
+                                              Class="!p-1 !bg-destructive-800/80"/>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-1 px-1">
+                            @if (presetGame.MinShuffleTime.HasValue || presetGame.MaxShuffleTime.HasValue)
+                            {
+                                <div class="flex items-center gap-1 text-sm text-foreground-300 flex-1">
+                                    <span>@(presetGame.MinShuffleTime?.ToString() ?? "-")s</span>
+                                    <span class="text-foreground-400">→</span>
+                                    <span>@(presetGame.MaxShuffleTime?.ToString() ?? "-")s</span>
+                                </div>
+                                <button @onclick="() => ClearGameTimes(presetGame)"
+                                        class="text-foreground-400 hover:text-foreground-300"
+                                        title="Clear Override">
+                                    <Heroicon Name="x-mark" Type="HeroiconType.Mini" class="w-4 h-4"/>
+                                </button>
+                                <button @onclick="() => ShowGameTimeDialog(presetGame)"
+                                        class="text-foreground-400 hover:text-foreground-300"
+                                        title="Override Times">
+                                    <Heroicon Name="clock" Type="HeroiconType.Mini" class="w-4 h-4"/>
+                                </button>
+                            }
+                            else
+                            {
+                                <button @onclick="() => ShowGameTimeDialog(presetGame)"
+                                        class="text-foreground-400 hover:text-foreground-300 flex-1 opacity-0 group-hover/game:opacity-100 transition-opacity"
+                                        title="Override Times">
+                                    <div class="flex items-center justify-center gap-1">
+                                        <Heroicon Name="clock" Type="HeroiconType.Mini" class="w-4 h-4"/>
+                                        <span class="text-sm">Override Times</span>
+                                    </div>
+                                </button>
+                            }
+                        </div>
+                    </div>
+                }
+            }
+
+            <!-- Add Game Card -->
+            <button @onclick="AddGame"
+                    class="w-[180px] aspect-[2/3] bg-background-800/50 rounded-lg border border-background-700/50 hover:border-primary/50 transition-all relative group flex flex-col items-center justify-center gap-4">
+                <div
+                    class="w-16 h-16 rounded-full bg-background-600/90 flex items-center justify-center text-foreground-400 group-hover:text-primary group-hover:bg-background-500/90 group-hover:scale-110 transition-all">
+                    <Heroicon Name="plus" Type="HeroiconType.Solid" class="w-8 h-8"/>
+                </div>
+                <span
+                    class="text-base font-medium text-foreground-400 group-hover:text-primary transition-colors">Add
+                        Game</span>
+            </button>
+        </div>
+    </PageContent>
+</div>
+
+<DialogForm @ref="_gameTimeDialog" TData="PresetGame" Title="Override Shuffle Times">
+    <div class="space-y-4">
+        <div class="flex flex-col gap-2">
+            <FormField TData="PresetGame" TValue="int?" Label="Min Time (seconds)" For="@(() => context.MinShuffleTime)"
+                       Required>
+                <NumberInput T="int?" @bind-Value="context.MinShuffleTime" placeholder="Default"/>
+            </FormField>
+        </div>
+        <div class="flex flex-col gap-2">
+            <FormField TData="PresetGame" TValue="int?" Label="Max Time (seconds)"
+                       For="@(() => context.MaxShuffleTime)" Required>
+                <NumberInput T="int?" @bind-Value="context.MaxShuffleTime" placeholder="Default"/>
+            </FormField>
+        </div>
+    </div>
+</DialogForm>
+
+<DialogForm @ref="_presetNameDialog" TData="PresetNameModel" Title="@(_isRenaming ? "Rename Preset" : "New Preset")"
+            SubmitText="@(_isRenaming ? "Rename" : "Create")">
+    <div class="space-y-4">
+        <div class="flex flex-col gap-2">
+            <FormField TData="PresetNameModel" TValue="string" Label="Preset Name" For="@(() => context.Name)"
+                       Required>
+                <TextInput @bind-Value="context.Name" Class="w-full" placeholder="Enter preset name..."/>
+            </FormField>
+        </div>
+    </div>
+</DialogForm>
+
+<GamePickerPopup @ref="_gamePicker"
+                 Games="@Config.Games.Where(g => !CurrentPreset?.Games.Any(pg => pg.GameConfig.Name == g.Name) ??
+                                                 false)"/>
+
+<PresetPickerPopup @ref="_presetPicker"/>
+
+@code {
+    [Parameter] [Required] public required ShufflerSession Session { get; set; }
+
+    private ShufflerPreset CurrentPreset => HomeState.CurrentPreset;
+    private string? CurrentPresetId => HomeState.CurrentPresetId;
+    private bool HasChanges => HomeState.HasChanges;
+
+    private DialogForm<PresetGame>? _gameTimeDialog;
+    private DialogForm<PresetNameModel>? _presetNameDialog;
+
+    private GamePickerPopup? _gamePicker;
+    private PresetPickerPopup? _presetPicker;
+
+    private bool _isRenaming;
+
+    private class PresetNameModel
+    {
+        [Required(ErrorMessage = "Preset name is required")]
+        [MinLength(1, ErrorMessage = "Preset name cannot be empty")]
+        public string Name { get; set; } = "";
+    }
+
+    private async Task SavePreset()
+    {
+        if (string.IsNullOrWhiteSpace(CurrentPreset.Name) || CurrentPreset.Name == "Unsaved Preset")
+        {
+            var nameModel = new PresetNameModel();
+            var result = await _presetNameDialog!.Show(nameModel);
+            if (result == null || string.IsNullOrWhiteSpace(result.Name))
+                return;
+
+            CurrentPreset.Name = result.Name;
+        }
+
+        var validationContext = new ValidationContext(CurrentPreset);
+        var validationResults = new List<ValidationResult>();
+        if (!Validator.TryValidateObject(CurrentPreset, validationContext, validationResults, true))
+        {
+            var errors = string.Join("\n", validationResults.Select(r => r.ErrorMessage));
+            await ConfirmService.Alert($"Cannot save preset:\n{errors}");
+            return;
+        }
+
+        var presetToSave = new ShufflerPreset
+        {
+            Id = CurrentPresetId ?? Guid.NewGuid().ToString(),
+            Name = CurrentPreset.Name,
+            MinShuffleTime = CurrentPreset.MinShuffleTime,
+            MaxShuffleTime = CurrentPreset.MaxShuffleTime,
+            Games = CurrentPreset.Games.Select(g => new PresetGame
+            {
+                GameConfig = g.GameConfig,
+                MinShuffleTime = g.MinShuffleTime,
+                MaxShuffleTime = g.MaxShuffleTime
+            }).ToList()
+        };
+
+        var existingIndex = Config.Presets.FindIndex(p => p.Id == CurrentPreset.Id);
+        if (existingIndex >= 0)
+            Config.Presets[existingIndex] = presetToSave;
+        else
+            Config.Presets.Add(presetToSave);
+
+        await ConfigService.SaveAsync(Config);
+        HomeState.SetCurrentPreset(CurrentPreset, CurrentPreset.Id);
+    }
+
+    private async Task AddGame(MouseEventArgs args)
+    {
+        var game = await _gamePicker!.Show();
+        if (game == null) return;
+
+        CurrentPreset.Games.Add(new PresetGame
+        {
+            GameConfig = game,
+            MinShuffleTime = null,
+            MaxShuffleTime = null
+        });
+
+        HomeState.SetHasChanges();
+    }
+
+    private async Task ShowGameTimeDialog(PresetGame game)
+    {
+        var editingGame = new PresetGame
+        {
+            GameConfig = game.GameConfig,
+            MinShuffleTime = game.MinShuffleTime,
+            MaxShuffleTime = game.MaxShuffleTime
+        };
+
+        var result = await _gameTimeDialog!.Show(editingGame);
+        if (result != null)
+        {
+            game.MinShuffleTime = result.MinShuffleTime;
+            game.MaxShuffleTime = result.MaxShuffleTime;
+            HomeState.SetHasChanges();
+        }
+    }
+
+    private void RemoveGame(PresetGame game)
+    {
+        CurrentPreset.Games.Remove(game);
+        HomeState.SetHasChanges();
+    }
+
+    private void ClearGameTimes(PresetGame game)
+    {
+        game.MinShuffleTime = null;
+        game.MaxShuffleTime = null;
+        HomeState.SetHasChanges();
+    }
+
+    private async Task ShowLoadPresetDialog()
+    {
+        if (HasChanges)
+        {
+            var result = await ConfirmService.Confirm("You have unsaved changes. Are you sure you want to load a different preset?");
+            if (!result) return;
+        }
+
+        if (_presetPicker == null) return;
+        var preset = await _presetPicker.Show();
+        if (preset != null)
+            await LoadPreset(preset);
+    }
+
+    private async Task ShowNewPresetDialog()
+    {
+        if (HasChanges)
+        {
+            var result = await ConfirmService.Confirm("You have unsaved changes. Are you sure you want to create a new preset?");
+            if (!result) return;
+        }
+
+        _isRenaming = false;
+        var name = await _presetNameDialog!.Show(new PresetNameModel());
+        if (name != null)
+        {
+            var newPreset = new ShufflerPreset
+            {
+                Name = name.Name,
+                Games = new List<PresetGame>(),
+                MinShuffleTime = 30,
+                MaxShuffleTime = 60
+            };
+            HomeState.SetCurrentPreset(newPreset);
+        }
+    }
+
+    private async Task ShowRenameDialog()
+    {
+        _isRenaming = true;
+        var result = await _presetNameDialog!.Show(new PresetNameModel { Name = CurrentPreset.Name });
+        if (result != null)
+        {
+            CurrentPreset.Name = result.Name;
+            HomeState.SetHasChanges();
+        }
+    }
+
+    private async Task LoadPreset(ShufflerPreset preset)
+    {
+        // Create a new instance of ShufflerPreset to avoid modifying the original
+        var newPreset = new ShufflerPreset
+        {
+            Id = preset.Id,
+            Name = preset.Name,
+            MinShuffleTime = preset.MinShuffleTime,
+            MaxShuffleTime = preset.MaxShuffleTime,
+            Games = preset.Games.Select(g => new PresetGame
+            {
+                GameConfig = g.GameConfig,
+                MinShuffleTime = g.MinShuffleTime,
+                MaxShuffleTime = g.MaxShuffleTime
+            }).ToList()
+        };
+
+        // First update the UI state
+        HomeState.SetCurrentPreset(newPreset, preset.Id);
+        await InvokeAsync(StateHasChanged);
+
+        // Then load the preset in the background
+        await Shuffler.LoadPreset(newPreset);
+        HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
+        _presetPicker?.Hide();
+    }
+
+    private void RevertChanges()
+    {
+        HomeState.RevertChanges();
+    }
+
+}

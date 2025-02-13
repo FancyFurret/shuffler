@@ -1,0 +1,57 @@
+@using Microsoft.AspNetCore.Components.Routing
+@using Blazor.Heroicons
+@using Blazor.Heroicons.Solid
+@inject NavigationManager NavigationManager
+@implements IDisposable
+
+@code {
+    [Parameter] public string Text { get; set; }
+    [Parameter] public string Icon { get; set; }
+    [Parameter] public string Path { get; set; }
+    [Parameter] public string? Color { get; set; }
+
+    private bool IsActive => NavigationManager.Uri.EndsWith(Path);
+
+    protected override void OnInitialized()
+    {
+        NavigationManager.LocationChanged += OnLocationChanged;
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        NavigationManager.LocationChanged -= OnLocationChanged;
+    }
+
+    private string GetIconClasses() => IsActive ? "w-5 h-5" : "w-5 h-5";
+}
+
+<a href="@Path" class="@GetNavItemClasses()">
+    <Heroicon Name="@Icon" Type="@(IsActive ? HeroiconType.Solid : HeroiconType.Outline)" class="@GetIconClasses()" />
+    <span>@Text</span>
+</a>
+
+@code {
+    private string GetNavItemClasses()
+    {
+        var baseClasses = "flex items-center gap-3 p-2 pl-4 rounded-lg transition-all duration-150 ease-in-out relative group";
+        var gradientClasses = Color switch
+        {
+            "success" => "before:from-success before:to-success/80",
+            "warning" => "before:from-warning before:to-warning/80",
+            "error" => "before:from-error before:to-error/80",
+            _ => "before:from-gradient-1 before:to-gradient-2"
+        };
+
+        if (IsActive)
+        {
+            return $"{baseClasses} before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b {gradientClasses} before:transition-all before:duration-150 before:ease-in-out before:transform before:scale-y-100 before:origin-top font-bold";
+        }
+
+        return $"{baseClasses} before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b {gradientClasses} before:transition-all before:duration-150 before:ease-in-out before:transform before:scale-y-0 before:origin-top hover:before:scale-y-100";
+    }
+}

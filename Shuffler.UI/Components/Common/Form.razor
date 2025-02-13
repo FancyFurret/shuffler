@@ -1,0 +1,70 @@
+@attribute [CascadingTypeParameter(nameof(TData))]
+@typeparam TData
+
+<EditForm EditContext="@EditContext" OnValidSubmit="@HandleValidSubmit" class="@Class">
+    <DataAnnotationsValidator/>
+    <div class="space-y-4">
+        <CascadingValue Value="@Model" IsFixed="true">
+            @ChildContent
+        </CascadingValue>
+    </div>
+    @if (Buttons)
+    {
+        <div class="mt-6 flex justify-end gap-3">
+            @if (OnCancel.HasDelegate)
+            {
+                <StyledButton OnClick="OnCancel" Text="Cancel" Variant="ButtonVariant.Default"/>
+            }
+            <StyledButton Type="submit" Text="@SubmitText" Variant="ButtonVariant.Primary"
+                          Disabled="@(SubmitDisabled)" Loading="@_loading"/>
+        </div>
+    }
+</EditForm>
+
+@code {
+    [Parameter] public required TData Model { get; set; }
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+    [Parameter] public required EventCallback OnValidSubmit { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public string SubmitText { get; set; } = "Save";
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public bool Buttons { get; set; } = true;
+    [Parameter] public bool SubmitDisabled { get; set; }
+
+    private EditContext EditContext { get; set; } = null!;
+    private bool _loading;
+
+    protected override void OnInitialized()
+    {
+        EditContext = new EditContext(Model);
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!ReferenceEquals(EditContext.Model, Model))
+            EditContext = new EditContext(Model);
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            await OnValidSubmit.InvokeAsync();
+            EditContext.MarkAsUnmodified();
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    public void NotifyFieldChanged(string fieldIdentifier)
+    {
+        EditContext.NotifyFieldChanged(EditContext.Field(fieldIdentifier));
+    }
+
+}

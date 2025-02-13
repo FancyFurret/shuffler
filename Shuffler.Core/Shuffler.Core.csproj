@@ -1,0 +1,48 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Platforms>x64</Platforms>
+    </PropertyGroup>
+
+    <!-- Build both x86 and x64 versions of the Hook -->
+    <Target Name="BuildHookConfigurations" BeforeTargets="Build">
+        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"
+                 Properties="Configuration=$(Configuration);Platform=x64;"
+                 Targets="Build" />
+        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"
+                 Properties="Configuration=$(Configuration);Platform=Win32;"
+                 Targets="Build" />
+    </Target>
+    
+    <!-- Build both x86 and x64 versions of the Injector -->
+    <Target Name="BuildInjectorConfigurations" BeforeTargets="Build">
+        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"
+                 Properties="Configuration=$(Configuration);Platform=x64;"
+                 Targets="Build" />
+        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"
+                 Properties="Configuration=$(Configuration);Platform=x86;"
+                 Targets="Build" />
+    </Target>
+
+    <ItemGroup>
+        <None Include="$(SolutionDir)x64\$(Configuration)\Shuffler.Hook64.dll" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)$(Configuration)\Shuffler.Hook.dll" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x64\$(Configuration)\Shuffler.Hook.Injector64.exe" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x86\$(Configuration)\Shuffler.Hook.Injector.exe" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x64\$(Configuration)\Shuffler.Hook.Injector64.runtimeconfig.json" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x86\$(Configuration)\Shuffler.Hook.Injector.runtimeconfig.json" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x64\$(Configuration)\*.dll" CopyToOutputDirectory="Always" />
+        <None Include="$(SolutionDir)Shuffler.Hook.Injector\bin\x86\$(Configuration)\*.dll" CopyToOutputDirectory="Always" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="RawInput.Sharp" Version="0.1.3" />
+        <PackageReference Include="SharpDX.XInput" Version="4.2.0" />
+        <PackageReference Include="System.Management" Version="8.0.0" />
+        <FrameworkReference Include="Microsoft.WindowsDesktop.App.WindowsForms" />
+    </ItemGroup>
+</Project>

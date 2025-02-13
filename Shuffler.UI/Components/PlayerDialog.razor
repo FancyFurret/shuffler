@@ -1,0 +1,73 @@
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@inject AvatarService AvatarService
+
+@inherits DialogFormBase<PlayerConfig>
+
+<DialogForm TData="PlayerConfig" @ref="DialogForm" RecordName="Player">
+    <div class="flex gap-3 items-center">
+        <div class="flex-1">
+            <FormField Label="Name" Required For="@(() => context.Name)">
+                <div class="flex flex-row gap-3">
+                    <TextInput @bind-Value="context.Name"/>
+                    <button type="button" @onclick="@OpenColorPicker" @onclick:stopPropagation
+                            class="w-10 h-10 rounded-full transition-transform hover:scale-110 relative group"
+                            style="background: @context.Color">
+                        <div class="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                             style="box-shadow: 0 0 12px 2px rgba(255,255,255,0.2)">
+                        </div>
+                    </button>
+                </div>
+            </FormField>
+        </div>
+    </div>
+
+    <div class="mt-6">
+        <h3 class="text-lg font-medium mb-2">Avatar Sources:</h3>
+        <div class="flex gap-6">
+            <div class="flex-1">
+                <FormField Label="Steam Profile" HelpText="Enter your Steam profile URL to use your Steam avatar"
+                           For="@(() => context.SteamProfile)">
+                    <TextInput @bind-Value="context.SteamProfile" @onblur="OnSteamProfileChanged"/>
+                </FormField>
+
+                <FormField Label="Discord ID" HelpText="Your Discord User ID to use your Discord avatar"
+                           For="@(() => context.DiscordUserId)">
+                    <NumberInput T="ulong?" @bind-Value="context.DiscordUserId" @onblur="OnDiscordIdChanged"/>
+                </FormField>
+            </div>
+            <div class="w-32 flex flex-col justify-center -mt-4">
+                <Avatar Player="@context" Large="true"/>
+            </div>
+        </div>
+    </div>
+</DialogForm>
+
+<ColorPickerPopup @ref="_colorPicker"/>
+
+@code {
+    private ColorPickerPopup? _colorPicker;
+
+    private async Task OpenColorPicker(MouseEventArgs e)
+    {
+        if (_colorPicker == null || Model == null) return;
+
+        var preset = await _colorPicker.Show((int)e.ClientX, (int)e.ClientY);
+        if (preset == null) return;
+
+        Model.Color = preset.Gradient;
+    }
+
+    private async Task OnSteamProfileChanged()
+    {
+        if (Model == null) return;
+        await AvatarService.UpdatePlayerAvatarAsync(Model);
+    }
+
+    private async Task OnDiscordIdChanged()
+    {
+        if (Model == null) return;
+        await AvatarService.UpdatePlayerAvatarAsync(Model);
+    }
+
+}

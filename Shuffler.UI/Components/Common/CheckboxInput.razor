@@ -1,0 +1,26 @@
+@using Blazor.Heroicons
+
+<div class="relative">
+    <label class="flex items-center gap-3 cursor-pointer">
+        <div class="relative w-5 h-5">
+            <input type="checkbox" @bind="ValueProperty" class="absolute opacity-0 w-0 h-0" />
+            <div class="w-5 h-5 rounded-md border border-primary flex items-center justify-center">
+                <Heroicon Name="check" Type="HeroiconType.Solid"
+                    class="@($"w-4 h-4 text-primary transition-all duration-200 transform {(ValueProperty ? "scale-100 opacity-100" : "scale-75 opacity-0")}")" />
+            </div>
+        </div>
+        <span class="label-text font-medium">@Label</span>
+    </label>
+</div>
+
+@code {
+    [Parameter] public required string Label { get; set; }
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+
+    private bool ValueProperty
+    {
+        get => Value;
+        set => ValueChanged.InvokeAsync(value);
+    }
+}

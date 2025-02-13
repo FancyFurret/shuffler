@@ -1,0 +1,65 @@
+@using Shuffler.UI.Services
+@implements IAsyncDisposable
+
+@inject ConfirmService Confirm
+
+<Dialog @ref="_dialog" Title="@_title" MaxWidth="max-w-md">
+    <p class="text-gray-300">@_message</p>
+    <div class="mt-6 flex justify-end gap-3">
+        @if (!_isAlert)
+        {
+            <StyledButton OnClick="OnCancel" Text="@CancelText" Variant="ButtonVariant.Default" />
+            <StyledButton OnClick="OnConfirm" Text="@ConfirmText"
+                Variant="@(_isDestructive? ButtonVariant.Destructive: ButtonVariant.Primary)" />
+        }
+        else
+        {
+            <StyledButton OnClick="OnConfirm" Text="OK" Variant="ButtonVariant.Primary" />
+        }
+    </div>
+</Dialog>
+
+@code {
+    private Dialog? _dialog;
+    private TaskCompletionSource<bool>? _resultTcs;
+    private string _message = "";
+    private string _title = "Confirm";
+    private bool _isDestructive;
+    private bool _isAlert;
+
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+
+    protected override void OnInitialized()
+    {
+        Confirm.RegisterDialog(Show);
+    }
+
+    public Task<bool> Show(string message, string? title = null, bool isDestructive = false, bool isAlert = false)
+    {
+        _message = message;
+        _title = title ?? (isAlert ? "Alert" : "Confirm");
+        _isDestructive = isDestructive;
+        _isAlert = isAlert;
+
+        _resultTcs = new TaskCompletionSource<bool>();
+        _dialog?.Show();
+        return _resultTcs.Task;
+    }
+
+    private async Task Hide(bool result)
+    {
+        if (_dialog != null)
+            await _dialog.Hide();
+        _resultTcs?.SetResult(result);
+    }
+
+    private Task OnConfirm() => Hide(true);
+    private Task OnCancel() => Hide(false);
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_dialog != null)
+            await Hide(false);
+    }
+}

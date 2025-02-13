@@ -1,0 +1,44 @@
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using Shuffler.UI.Components.Common
+@using Blazor.Heroicons
+
+<div class="w-80 border-l border-background-700/50 backdrop-blur-xl bg-background-900/60 flex flex-col">
+    <div class="flex-shrink-0 p-6 pb-3 border-b border-background-700/50">
+        <h2 class="text-xl font-medium">Players</h2>
+    </div>
+    <div class="flex-1 overflow-y-auto p-6 pt-3">
+        <div class="space-y-3">
+            @foreach (var player in Session.Players)
+            {
+                <PlayerCard Player="player" />
+            }
+        </div>
+        <div class="mt-4">
+            <StyledButton Icon="plus" IconType="HeroiconType.Solid" Variant="ButtonVariant.Transparent"
+                Class="w-full h-10" OnClick="OnAddPlayer" />
+        </div>
+    </div>
+</div>
+
+<PlayerPickerPopup @ref="_playerPicker" />
+
+@code {
+    [Parameter]
+    public ShufflerSession Session { get; set; } = null!;
+
+    [Parameter]
+    public EventCallback<PlayerConfig> OnPlayerAdded { get; set; }
+
+    private PlayerPickerPopup? _playerPicker;
+
+    private async Task OnAddPlayer(MouseEventArgs e)
+    {
+        if (_playerPicker != null)
+        {
+            var config = await _playerPicker.Show((int)e.ClientX, (int)e.ClientY);
+            if (config != null)
+                await OnPlayerAdded.InvokeAsync(config);
+        }
+    }
+}

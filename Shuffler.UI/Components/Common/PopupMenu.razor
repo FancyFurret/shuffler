@@ -1,0 +1,52 @@
+@using Blazor.Heroicons
+@using Shuffler.UI.Components.Common
+@implements IDisposable
+
+<div class="relative">
+    @if (!HideTrigger)
+    {
+        <StyledButton OnClick="ToggleMenu" Icon="ellipsis-vertical" Size="ButtonSize.Small" Shape="ButtonShape.Square"
+            Variant="@(IsActive? ButtonVariant.Default: ButtonVariant.Transparent)" Class="!w-8 !aspect-square !p-0" />
+    }
+
+    <Popup @ref="_overlay">
+        <div class="w-40 py-1 rounded-lg bg-background-800 border border-background-600 shadow-lg pointer-events-auto"
+            @onclick:stopPropagation>
+            <CascadingValue Value="this">
+                @ChildContent
+            </CascadingValue>
+        </div>
+    </Popup>
+</div>
+
+@code {
+    [Parameter] public bool IsActive { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool HideTrigger { get; set; }
+    private Popup? _overlay;
+
+    private void ToggleMenu()
+    {
+        _overlay?.Toggle();
+    }
+
+    public void Show()
+    {
+        _overlay?.Show();
+    }
+
+    public void Show(int x, int y)
+    {
+        _overlay?.Show(x, y);
+    }
+
+    public void Hide()
+    {
+        _overlay?.Hide();
+    }
+
+    public void Dispose()
+    {
+        _overlay?.Hide();
+    }
+}

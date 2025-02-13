@@ -1,0 +1,132 @@
+@using Shuffler.UI.Extensions
+@implements IAsyncDisposable
+@inject IJSRuntime Js
+
+<style>
+    .dialog-content {
+        animation: dialog-content-in 0.3s ease-out forwards;
+    }
+
+    .dialog-content.closing {
+        animation: dialog-content-out 0.2s ease-in forwards;
+    }
+
+    @@keyframes dialog-content-in {
+        from {
+            opacity: 0;
+            transform: scale(0.95) translateY(-20px);
+        }
+
+        to {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+    }
+
+    @@keyframes dialog-content-out {
+        from {
+            opacity: 1;
+            transform: scale(1) translateY(0);
+        }
+
+        to {
+            opacity: 0;
+            transform: scale(0.95) translateY(-20px);
+        }
+    }
+</style>
+
+@if (_isVisible)
+{
+    <ClickBlocker OnClick="OnBackdropClick" Class="bg-black/50 backdrop-blur-sm" ZIndex="z-5"/>
+    <PortalContent>
+        <div class="fixed inset-0 z-40" @onkeydown="OnKeyDown" tabindex="-1" @ref="_containerRef"
+             @attributes="@(new Dictionary<string, object> { { "autofocus", true } })">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div @ref="_contentRef" @onclick:stopPropagation
+                     class="w-full @MaxWidth bg-background-800 border border-background-600 rounded-lg shadow-xl dialog-content">
+                    @if (!string.IsNullOrEmpty(Title))
+                    {
+                        <div class="px-6 py-4 border-b border-background-600">
+                            <h2 class="text-xl font-semibold">@Title</h2>
+                        </div>
+                    }
+                    <div class="p-6">
+                        @ChildContent
+                    </div>
+                </div>
+            </div>
+        </div>
+    </PortalContent>
+}
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public string MaxWidth { get; set; } = "max-w-2xl";
+
+    private bool _isVisible;
+    private bool _needsFocus;
+    private ElementReference? _contentRef;
+    private ElementReference? _containerRef;
+    private TaskCompletionSource? _showTaskCompletionSource;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsFocus && _containerRef.HasValue)
+        {
+            _needsFocus = false;
+            await _containerRef.Value.FocusAsync();
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key == "Escape")
+        {
+            await Hide();
+        }
+    }
+
+    public async Task Show()
+    {
+        _showTaskCompletionSource = new TaskCompletionSource();
+        _isVisible = true;
+        _needsFocus = true;
+        StateHasChanged();
+        await _showTaskCompletionSource.Task;
+    }
+
+    public async Task Hide()
+    {
+        if (!_isVisible) return;
+
+        if (_contentRef.HasValue)
+        {
+            await _contentRef.Value.TryAddClass("closing", Js);
+            await Task.Delay(200);
+        }
+
+        _isVisible = false;
+        await OnClose.InvokeAsync();
+        _showTaskCompletionSource?.TrySetResult();
+        StateHasChanged();
+    }
+
+    private async Task OnBackdropClick()
+    {
+        await Hide();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_isVisible)
+        {
+            await Hide();
+        }
+
+        _showTaskCompletionSource?.TrySetCanceled();
+    }
+
+}

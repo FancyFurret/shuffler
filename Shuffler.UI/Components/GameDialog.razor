@@ -1,0 +1,60 @@
+@using Shuffler.Core
+@using Shuffler.UI.Services
+
+@inject ShufflerConfig Config
+
+@inherits DialogFormBase<GameConfig>
+
+<DialogForm TData="GameConfig" @ref="DialogForm" RecordName="Game">
+    <div class="flex gap-3 items-center">
+        <div class="flex-1">
+            <FormField Label="Name" Required For="@(() => context.Name)">
+                <TextInput @bind-Value="context.Name" />
+            </FormField>
+        </div>
+        <div class="w-10 h-10 mt-2">
+            <GameImage Game="@context" />
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <FormField Label="Game Path" Required For="@(() => context.ExePath)" HelpText="Path to the game executable">
+            <div class="flex gap-2">
+                <TextInput @bind-Value="context.ExePath" />
+                <StyledButton Variant="ButtonVariant.Primary" OnClick="@BrowseForGame">
+                    Browse
+                </StyledButton>
+            </div>
+        </FormField>
+
+        <div class="mt-4 flex gap-4">
+            <FormField For="@(() => context.EnableHook)" HelpText="Enable input hooking for this game">
+                <CheckboxInput Label="Enable Hook" @bind-Value="@context.EnableHook" />
+            </FormField>
+            <FormField For="@(() => context.Suspend)" HelpText="Suspend the game when not active">
+                <CheckboxInput Label="Suspend" @bind-Value="@context.Suspend" />
+            </FormField>
+        </div>
+    </div>
+</DialogForm>
+
+@code {
+    private async Task BrowseForGame()
+    {
+        var result = await FilePicker.PickFileAsync(new FilePickerOptions
+        {
+            FileTypes = [new FileType { Name = "Executable", Extension = "exe" }],
+            InitialDirectory = Config.SteamPath,
+            Title = "Select Game Executable"
+        });
+
+        if (!string.IsNullOrEmpty(result))
+        {
+            Model!.ExePath = result;
+            if (string.IsNullOrEmpty(Model.Name))
+            {
+                Model.Name = Path.GetFileNameWithoutExtension(result);
+            }
+        }
+    }
+}

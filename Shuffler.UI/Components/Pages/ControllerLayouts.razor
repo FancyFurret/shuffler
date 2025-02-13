@@ -1,0 +1,151 @@
+@page "/controller-layouts"
+@page "/controller-layouts/{PlayerId}"
+
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using Shuffler.UI.Services
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+@inject ConfirmService Confirm
+
+<PageContent>
+    <div class="flex gap-4">
+        <!-- Player Filter -->
+        <div class="w-64 p-4 bg-background-800/30 backdrop-blur-sm rounded-lg border border-background-700/50">
+            <h3 class="text-lg font-medium mb-4">Players</h3>
+            <div class="space-y-2">
+                @foreach (var player in Config.Players)
+                {
+                    <StyledButton OnClick="() => SelectPlayer(player)" Class="w-full flex items-center gap-2"
+                                  Variant="ButtonVariant.Transparent" Selected="@(player.Name == PlayerId)">
+                        <Avatar Player="@player"/>
+                        <span class="truncate">@player.Name</span>
+                    </StyledButton>
+                }
+            </div>
+        </div>
+
+        <!-- Layouts List -->
+        <div class="flex-1">
+            @if (string.IsNullOrEmpty(PlayerId))
+            {
+                <div class="flex items-center justify-center h-full">
+                    <div class="text-center text-gray-500">
+                        <h3 class="text-xl font-medium mb-2">No Player Selected</h3>
+                        <p>Please select a player from the list to view their controller layouts.</p>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <DataGrid TItem="ControllerLayout" Title="Controller Layouts" ItemName="Layout" Items="@FilteredLayouts"
+                          OnAdd="@AddLayout" OnEdit="@EditLayout" OnDelete="@DeleteLayout">
+                    <ChildContent>
+                        <DataGridColumn Title="Game" Class="w-48">
+                            <Template>
+                                <div class="flex items-center gap-4">
+                                    <GameImage Game="@GetGame(context)" Class="w-6 h-6"/>
+                                    <span>@GetGame(context)?.Name</span>
+                                </div>
+                            </Template>
+
+
+                        </DataGridColumn>
+                        <DataGridColumn Title="Remaps">
+                            <Template>
+                                <div class="flex flex-wrap gap-2">
+                                    @foreach (var remap in context.Remaps)
+                                    {
+                                        <div class="px-2 py-1 rounded bg-background-700/30 text-sm">
+                                            @remap.Source.GetDisplayName() → @remap.Target.GetDisplayName()
+                                        </div>
+                                    }
+                                </div>
+                            </Template>
+                        </DataGridColumn>
+                    </ChildContent>
+                </DataGrid>
+            }
+        </div>
+    </div>
+</PageContent>
+
+<LayoutDialog @ref="_dialog"/>
+
+@code {
+    [Parameter] public string? PlayerId { get; set; }
+
+    private LayoutDialog? _dialog;
+
+    private IList<ControllerLayout> FilteredLayouts => Config.ControllerLayouts
+        .Where(l => string.IsNullOrEmpty(PlayerId) || l.PlayerId == PlayerId)
+        .Where(l => !string.IsNullOrEmpty(l.GameId))
+        .ToList();
+
+    private GameConfig? GetGame(ControllerLayout layout)
+    {
+        return Config.Games.FirstOrDefault(g => g.Name == layout.GameId);
+    }
+
+    private void SelectPlayer(PlayerConfig player)
+    {
+        PlayerId = player.Name;
+        StateHasChanged();
+    }
+
+    private async Task AddLayout()
+    {
+        if (_dialog == null) return;
+
+        var layout = await _dialog.Show(new ControllerLayout
+        {
+            PlayerId = PlayerId ?? "",
+            GameId = "",
+            Remaps = new List<ButtonRemap>()
+        });
+        if (layout == null) return;
+
+        Config.ControllerLayouts.Add(layout);
+        await ConfigService.SaveAsync(Config);
+    }
+
+    private async Task EditLayout(ControllerLayout layout)
+    {
+        if (_dialog == null) return;
+
+        var originalLayout = layout;
+        var editLayout = await _dialog.Show(new ControllerLayout
+        {
+            PlayerId = layout.PlayerId,
+            GameId = layout.GameId,
+            Remaps = layout.Remaps.ToList()
+        }, true);
+
+        if (editLayout == null) return;
+
+        var index = Config.ControllerLayouts.IndexOf(originalLayout);
+        if (index != -1)
+        {
+            originalLayout.PlayerId = editLayout.PlayerId;
+            originalLayout.GameId = editLayout.GameId;
+            originalLayout.Remaps = editLayout.Remaps;
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+    private async Task DeleteLayout(ControllerLayout layout)
+    {
+        var game = GetGame(layout);
+        if (!await Confirm.Confirm($"Are you sure you want to delete the layout for {game?.Name}?", "Delete Layout",
+                isDestructive: true))
+            return;
+
+        var index = Config.ControllerLayouts.IndexOf(layout);
+        if (index != -1)
+        {
+            Config.ControllerLayouts.RemoveAt(index);
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+}

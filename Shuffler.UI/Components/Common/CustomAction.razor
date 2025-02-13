@@ -1,0 +1,13 @@
+@using Blazor.Heroicons
+
+<button @onclick="Action"
+    class="p-1.5 rounded-lg bg-background-700/50 hover:bg-background-600/50 transition-colors @Class" title="@Title">
+    <Heroicon Name="@Icon" Type="HeroiconType.Mini" class="w-4 h-4" />
+</button>
+
+@code {
+    [Parameter] public required EventCallback Action { get; set; }
+    [Parameter] public required string Icon { get; set; }
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public string? Class { get; set; }
+}

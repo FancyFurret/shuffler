@@ -1,0 +1,86 @@
+@page "/settings"
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@using Shuffler.UI.Components.Common
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+
+<PageContent Title="Settings">
+    <div class="max-w-3xl mx-auto w-full">
+        <Form @ref="_form" TData="ShufflerConfig" Model="@_config" OnValidSubmit="@OnSubmit" SubmitText="Save">
+            <div class="space-y-6">
+                <FormField TData="ShufflerConfig" TValue="string" Label="Steam Installation Path"
+                    HelpText="Path to your Steam installation folder" For="@(() => _config.SteamPath)">
+                    <div class="flex gap-2">
+                        <TextInput @bind-Value="_config.SteamPath" placeholder="C:\Program Files (x86)\Steam" />
+                        <StyledButton Variant="ButtonVariant.Primary" OnClick="@BrowseForSteamPath">
+                            Browse
+                        </StyledButton>
+                    </div>
+                </FormField>
+
+                <FormField TData="ShufflerConfig" TValue="string" Label="Steam API Key"
+                    HelpText="Optional: Used to fetch player avatars from Steam profiles"
+                    For="@(() => _config.SteamApiKey)">
+                    <TextInput @bind-Value="_config.SteamApiKey" Type="@(_steamKeyFocused ? "text" : "password")"
+                        placeholder="Optional" @onfocus="() => _steamKeyFocused = true"
+                        @onblur="() => _steamKeyFocused = false" />
+                </FormField>
+
+                <FormField TData="ShufflerConfig" TValue="string" Label="Discord Token"
+                    HelpText="Optional: Used to fetch player avatars from Discord profiles"
+                    For="@(() => _config.DiscordToken)">
+                    <TextInput @bind-Value="_config.DiscordToken" Type="@(_discordTokenFocused ? "text" : "password")"
+                        placeholder="Optional" @onfocus="() => _discordTokenFocused = true"
+                        @onblur="() => _discordTokenFocused = false" />
+                </FormField>
+            </div>
+        </Form>
+    </div>
+</PageContent>
+
+@code {
+    private ShufflerConfig _config = new();
+    private bool _steamKeyFocused;
+    private bool _discordTokenFocused;
+    private Form<ShufflerConfig>? _form;
+
+    protected override void OnInitialized()
+    {
+        // Clone the current config to avoid direct modification
+        _config = Config with
+        {
+            SteamPath = Config.SteamPath,
+            SteamApiKey = Config.SteamApiKey,
+            DiscordToken = Config.DiscordToken
+        };
+    }
+
+    private async Task OnSubmit()
+    {
+        // Update only the settings we care about
+        Config.SteamPath = _config.SteamPath;
+        Config.SteamApiKey = _config.SteamApiKey;
+        Config.DiscordToken = _config.DiscordToken;
+
+        await ConfigService.SaveAsync(Config);
+    }
+
+    private async Task BrowseForSteamPath()
+    {
+        var result = await FilePicker.PickFileAsync(new FilePickerOptions
+        {
+            FileTypes = [new FileType { Name = "Steam", Extension = "exe" }],
+            InitialDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "Steam"),
+            Title = "Select Steam.exe"
+        });
+
+        if (!string.IsNullOrEmpty(result))
+        {
+            _config.SteamPath = Path.GetDirectoryName(result)!;
+            // Notify the form's EditContext that the field has changed
+            _form?.NotifyFieldChanged(nameof(_config.SteamPath));
+            StateHasChanged();
+        }
+    }
+}

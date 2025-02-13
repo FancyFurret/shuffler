@@ -1,0 +1,117 @@
+@using Shuffler.Core
+@using Shuffler.Core.Services
+@using Blazor.Heroicons
+@using Shuffler.Core.Models
+
+@inject GameInfoService GameInfoService
+
+<div class="@GetContainerClasses()">
+    @if (_isLoading)
+    {
+        <Heroicon Name="puzzle-piece" Type="HeroiconType.Solid"
+            class="@($"{BackupIconClass ?? "w-2/5 h-2/5"} text-primary")" />
+    }
+    else if (_hasError || (string.IsNullOrEmpty(_gameInfo?.PortraitUrl) && string.IsNullOrEmpty(_gameInfo?.IconUrl)))
+    {
+        <Heroicon Name="puzzle-piece" Type="HeroiconType.Solid"
+            class="@($"{BackupIconClass ?? "w-2/5 h-2/5"} text-primary")" />
+    }
+    else
+    {
+        var imageUrl = Size == GameImageSize.Icon
+        ? _gameInfo?.IconUrl
+        : !string.IsNullOrEmpty(_gameInfo?.PortraitUrl)
+        ? _gameInfo?.PortraitUrl
+        : _gameInfo?.IconUrl;
+        var useBackupSize = Size == GameImageSize.Portrait && string.IsNullOrEmpty(_gameInfo?.PortraitUrl);
+
+        @if (!string.IsNullOrEmpty(imageUrl))
+        {
+            <img src="@imageUrl" alt="@Game.Name" class="object-contain @(useBackupSize? BackupIconClass : "")" />
+        }
+        else
+        {
+            <Heroicon Name="puzzle-piece" Type="HeroiconType.Solid"
+                class="@($"{BackupIconClass ?? "w-2/5 h-2/5"} text-primary")" />
+        }
+    }
+</div>
+
+@code {
+
+    public enum GameImageSize
+    {
+        Icon,
+        Portrait
+    }
+
+    [Parameter] public required GameConfig Game { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter] public GameImageSize Size { get; set; } = GameImageSize.Icon;
+    [Parameter] public string? BackupIconClass { get; set; }
+
+    private bool _isLoading;
+    private bool _hasError;
+    private GameInfo? _gameInfo;
+    private string? _lastExePath;
+    private int? _lastSteamAppId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _gameInfo = GameInfoService.GetGameInfo(Game);
+
+        if (_gameInfo == null)
+        {
+            await LoadGameInfoAsync();
+        }
+        else
+        {
+            _lastExePath = Game.ExePath;
+            _lastSteamAppId = Game.SteamAppId;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_lastExePath != Game.ExePath || _lastSteamAppId != Game.SteamAppId)
+        {
+            await LoadGameInfoAsync();
+        }
+    }
+
+    private async Task LoadGameInfoAsync()
+    {
+        try
+        {
+            _isLoading = true;
+            _hasError = false;
+            StateHasChanged();
+
+            _gameInfo = await GameInfoService.UpdateGameInfoAsync(Game);
+            _lastExePath = Game.ExePath;
+            _lastSteamAppId = Game.SteamAppId;
+        }
+        catch
+        {
+            _hasError = true;
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetContainerClasses()
+    {
+        var classes = new List<string>
+{
+"rounded-lg overflow-hidden bg-background-700/50 flex items-center justify-center",
+Size == GameImageSize.Icon ? "aspect-square" : "aspect-[3/4]",
+Class ?? ""
+};
+
+        return string.Join(" ", classes.Where(c => !string.IsNullOrEmpty(c)));
+    }
+
+}

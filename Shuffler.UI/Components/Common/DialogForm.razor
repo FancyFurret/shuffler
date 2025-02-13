@@ -1,0 +1,67 @@
+@attribute [CascadingTypeParameter(nameof(TData))]
+@typeparam TData
+@implements IAsyncDisposable
+
+<Dialog @ref="_dialog" Title="@ComputedTitle" MaxWidth="@MaxWidth">
+    <Form TData="TData" Model="@Model" OnValidSubmit="OnFormSubmit" OnCancel="OnFormCancel" SubmitText="@SubmitText" Class="@Class">
+        <CascadingValue Name="DialogFormModel" Value="@Model" IsFixed="true">
+            @if (Model != null)
+            {
+                @ChildContent(Model)
+            }
+        </CascadingValue>
+    </Form>
+</Dialog>
+
+@code {
+
+    [Parameter] public string Title { get; set; } = "";
+    [Parameter] public string RecordName { get; set; } = "";
+    [Parameter] public string MaxWidth { get; set; } = "max-w-2xl";
+    [Parameter] public string SubmitText { get; set; } = "Save";
+    [Parameter] public string Class { get; set; } = "";
+    [Parameter] public bool Editing { get; set; }
+    [Parameter] public required RenderFragment<TData> ChildContent { get; set; }
+   
+    private string ComputedTitle => !string.IsNullOrEmpty(Title) ? Title :
+        Editing ? $"Edit {RecordName}" : $"Add {RecordName}";
+
+    public TData? Model { get; private set; }
+
+    private Dialog? _dialog;
+    private TaskCompletionSource<TData?>? _resultTcs;
+
+    public async Task<TData?> Show(TData model, bool editing = false)
+    {
+        Model = model;
+        Editing = editing;
+        _resultTcs = new TaskCompletionSource<TData?>();
+        await InvokeAsync(StateHasChanged);
+        await _dialog!.Show();
+        return await _resultTcs.Task;
+    }
+
+    private async Task OnFormSubmit()
+    {
+        await Hide(true);
+    }
+
+    private async Task OnFormCancel()
+    {
+        await Hide(false);
+    }
+
+    public async Task Hide(bool success)
+    {
+        if (_dialog != null)
+            await _dialog.Hide();
+
+        if (_resultTcs is { Task.IsCompleted: false })
+            _resultTcs.SetResult(success ? Model : default);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await Hide(false);
+    }
+}

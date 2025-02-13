@@ -1,0 +1,116 @@
+@page "/games"
+
+@using Shuffler.Core
+@using Shuffler.UI.Services
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
+@inject ConfirmService Confirm
+
+<PageContent>
+    <DataGrid TItem="GameConfig" Title="Games" ItemName="Game" Items="@Config.Games" OnAdd="@AddGame"
+              OnEdit="@EditGame" OnDelete="@DeleteGame">
+        <ChildContent>
+
+            <DataGridColumn Title="Icon" Class="w-16">
+                <Template>
+                    <GameImage Game="@context"/>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Name" Property="@(g => g.Name)"/>
+            <DataGridColumn Title="Path" Property="@(g => g.ExePath)"/>
+            <DataGridColumn Title="Steam ID" Class="w-32">
+                <Template>
+                    @if (context.SteamAppId.HasValue)
+                    {
+                        <a href="https://store.steampowered.com/app/@context.SteamAppId" target="_blank" class="link">
+                            @context.SteamAppId
+                        </a>
+                    }
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Hook" Class="w-24" Property="@(g => g.EnableHook)"/>
+            <DataGridColumn Title="Suspend" Class="w-24" Property="@(g => g.Suspend)"/>
+        </ChildContent>
+    </DataGrid>
+</PageContent>
+
+<GameDialog @ref="@_dialog"/>
+
+@code {
+    private GameDialog? _dialog;
+
+    private async Task AddGame()
+    {
+        if (_dialog is null) return;
+
+        var game = await _dialog.Show(new GameConfig
+        {
+            Name = "",
+            ExePath = "",
+            EnableHook = true,
+            Suspend = true
+        });
+
+        if (game is null) return;
+
+        Config.Games.Add(game);
+        await ConfigService.SaveAsync(Config);
+    }
+
+    private async Task EditGame(GameConfig game)
+    {
+        if (_dialog is null) return;
+
+        var original = game;
+        var editGame = await _dialog.Show(new GameConfig
+        {
+            Name = game.Name,
+            ExePath = game.ExePath,
+            SteamAppId = game.SteamAppId,
+            EnableHook = game.EnableHook,
+            Suspend = game.Suspend
+        }, true);
+
+        if (editGame is null) return;
+
+        var index = Config.Games.FindIndex(g => g == original);
+        if (index != -1)
+        {
+            original.Name = editGame.Name;
+            original.ExePath = editGame.ExePath;
+            original.SteamAppId = editGame.SteamAppId;
+            original.EnableHook = editGame.EnableHook;
+            original.Suspend = editGame.Suspend;
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+    private async Task DeleteGame(GameConfig game)
+    {
+        // Check if game is used in any presets
+        var presetsUsingGame = Config.Presets
+            .Where(p => p.Games.Any(g => g.GameConfig.Name == game.Name))
+            .Select(p => p.Name)
+            .ToList();
+
+        if (presetsUsingGame.Any())
+        {
+            await Confirm.Alert(
+                $"Cannot delete {game.Name} because it is used in the following presets: {string.Join(", ", presetsUsingGame)}",
+                "Game In Use"
+            );
+            return;
+        }
+
+        if (!await Confirm.Confirm($"Are you sure you want to delete {game.Name}?", "Delete Game", isDestructive: true))
+            return;
+
+        var index = Config.Games.FindIndex(g => g.Name == game.Name);
+        if (index != -1)
+        {
+            Config.Games.RemoveAt(index);
+            await ConfigService.SaveAsync(Config);
+        }
+    }
+
+}

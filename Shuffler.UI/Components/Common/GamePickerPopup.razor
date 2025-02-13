@@ -1,0 +1,21 @@
+@namespace Shuffler.UI.Components.Common
+@using Shuffler.Core
+@inject ShufflerConfig Config
+@inherits DialogPicker<GameConfig>
+
+<Dialog @ref="Dialog" Title="Add Game">
+    <div class="grid grid-cols-2 gap-2 max-h-[50vh] overflow-y-auto pr-2">
+        @foreach (var game in Games)
+        {
+            <StyledButton OnClick="() => OnItemSelected(game)" Variant="ButtonVariant.Transparent"
+                Class="justify-start p-2">
+                <GameImage Game="@game" Class="w-6 h-6 shrink-0" />
+                <span class="truncate">@game.Name</span>
+            </StyledButton>
+        }
+    </div>
+</Dialog>
+
+@code {
+    [Parameter, EditorRequired] public required IEnumerable<GameConfig> Games { get; set; }
+}

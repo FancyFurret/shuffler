@@ -1,0 +1,53 @@
+@using Blazor.Heroicons
+@using Shuffler.Core
+@using Shuffler.Core.Models
+@using Shuffler.UI.Services
+@inject ShufflerCore Core
+@inject ShufflerConfig Config
+@inject AvatarService AvatarService
+@inherits PopupPicker<PlayerConfig>
+
+<Popup @ref="Popup">
+    <div class="p-5 rounded-lg bg-background-800 border border-background-600 shadow-lg pointer-events-auto"
+        @onclick:stopPropagation>
+        @{
+            var availablePlayers = Config.Players.Where(p => !IsPlayerInSession(p));
+        }
+
+        @{
+            var playerConfigs = availablePlayers.ToList();
+        }
+        @if (!playerConfigs.Any())
+        {
+            <div class="text-center py-2 text-foreground-500">
+                No players available
+            </div>
+        }
+        else
+        {
+            <div class="grid grid-cols-4 gap-1 max-h-100 overflow-auto">
+                @foreach (var player in playerConfigs)
+                {
+                    <button @onclick="() => OnItemSelected(player)"
+                        class="flex flex-col items-center p-1 rounded-lg transition-all duration-300 hover:bg-background-700">
+                        <div class="relative w-12 h-12">
+                            <div class="absolute inset-0 rounded-lg" style="background: @player.Color"></div>
+                            <div class="absolute inset-[2px] rounded-lg overflow-hidden">
+                                <Avatar Player="@player" />
+                            </div>
+                        </div>
+                        <div class="font-medium text-[13px] text-foreground-300 w-16 text-center">@player.Name</div>
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</Popup>
+
+@code {
+    private bool IsPlayerInSession(PlayerConfig config)
+    {
+        var session = Core.Session.Value;
+        return session.Players.Any(p => p.Config.Name == config.Name);
+    }
+}

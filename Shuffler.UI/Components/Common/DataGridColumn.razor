@@ -1,0 +1,78 @@
+@typeparam TItem
+@using System.Linq.Expressions
+@using Blazor.Heroicons
+
+@if (IsHeader)
+{
+    <th class="px-4 py-3 text-left font-medium @Class">@Title</th>
+}
+else
+{
+    <td class="px-4 py-3 @Class">
+        @if (Template != null)
+        {
+            @Template(CurrentItem)
+        }
+        else if (Property != null)
+        {
+            var value = GetPropertyValue(CurrentItem);
+            @if (value is bool boolValue)
+            {
+                <div class="flex justify-center">
+                    @if (boolValue)
+                    {
+                        <Heroicon Name="check" Type="HeroiconType.Solid" class="w-5 h-5 text-primary" />
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-foreground-400">
+                    @(value?.ToString() ?? "")
+                </div>
+            }
+        }
+    </td>
+}
+
+@code {
+    [CascadingParameter(Name = nameof(CurrentItem))] public required TItem CurrentItem { get; set; }
+    [CascadingParameter] public List<DataGridColumn<TItem>>? Columns { get; set; }
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public RenderFragment<TItem>? Template { get; set; }
+    [Parameter] public Expression<Func<TItem, object>>? Property { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    private bool IsHeader => CurrentItem == null;
+
+    protected override void OnInitialized()
+    {
+        if (Template == null && Property == null)
+            throw new InvalidOperationException("Either Template or Property must be provided");
+
+        if (Columns != null && !Columns.Contains(this))
+            Columns.Add(this);
+    }
+
+    private object? GetPropertyValue(TItem item)
+    {
+        if (Property == null) return null;
+
+        // Convert the expression to a compiled delegate for better performance
+        var compiled = Property.Compile();
+        return compiled(item);
+    }
+
+    internal DataGrid<TItem>.Column ToColumn() => new()
+    {
+        Title = Title,
+        Template = Template ?? (item => builder =>
+        {
+            builder.OpenElement(0, "div");
+            builder.AddAttribute(1, "class", "text-foreground-400");
+            builder.AddContent(2, GetPropertyValue(item)?.ToString() ?? "-");
+            builder.CloseElement();
+        }),
+        Class = Class
+    };
+}

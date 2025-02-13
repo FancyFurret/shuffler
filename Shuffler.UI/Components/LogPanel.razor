@@ -1,0 +1,81 @@
+@using Shuffler.Core
+@implements IDisposable
+
+@code {
+    private readonly List<LogEntry> _logs = [];
+    private CancellationTokenSource? _cts;
+
+    protected override void OnInitialized()
+    {
+        _cts = new CancellationTokenSource();
+
+        // Load existing logs
+        _logs.AddRange(LogManager.Entries);
+
+        LogManager.OnLog += OnLog;
+    }
+
+    private void OnLog(LogEntry message)
+    {
+        _logs.Add(message);
+        InvokeAsync(StateHasChanged);
+    }
+
+    private string GetLogClass(LogLevel level) => level switch
+    {
+        LogLevel.Debug => "text-foreground-400",
+        LogLevel.Info => "text-foreground-100",
+        LogLevel.Warning => "text-yellow-400",
+        LogLevel.Error => "text-red-400",
+        _ => "text-foreground-100"
+    };
+
+    private string GetLogBgClass(LogLevel level) => level switch
+    {
+        LogLevel.Debug => "hover:bg-background-400/20",
+        LogLevel.Info => "hover:bg-background-400/20",
+        LogLevel.Warning => "bg-yellow-400/10 hover:bg-yellow-400/20",
+        LogLevel.Error => "bg-red-400/10 hover:bg-red-400/20",
+        _ => "hover:bg-foreground-100/10"
+    };
+
+    public void Dispose()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        LogManager.OnLog -= OnLog;
+    }
+}
+
+<div class="h-full w-full flex flex-col bg-background-900/50">
+    <div class="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <div class="sticky top-0 z-10 bg-background-800/90 backdrop-blur-sm border-b border-background-600">
+            <div class="flex text-xs uppercase tracking-wider text-foreground-500 py-1.5 px-4">
+                <div class="w-20">Time</div>
+                <div class="w-16">Level</div>
+                <div class="w-32">Source</div>
+                <div class="flex-1">Message</div>
+            </div>
+        </div>
+        <div class="overflow-y-auto flex-1">
+            <div class="divide-y divide-background-600/50">
+                @foreach (var log in _logs.AsEnumerable().Reverse())
+                {
+                    <div class="flex items-center text-xs py-1.5 px-4 @GetLogBgClass(log.Level)">
+                        <div class="w-20 font-mono text-foreground-500">
+                            @log.Timestamp.ToLocalTime().ToString("HH:mm:ss")
+                        </div>
+                        <div class="w-16">
+                            <span
+                                class="px-1.5 py-0.5 rounded-full text-[10px] font-medium @GetLogClass(log.Level) bg-background-600/50">
+                                @log.Level
+                            </span>
+                        </div>
+                        <div class="w-32 font-mono text-foreground-400">@log.Source</div>
+                        <div class="flex-1 font-mono @GetLogClass(log.Level) selectable">@log.Message</div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

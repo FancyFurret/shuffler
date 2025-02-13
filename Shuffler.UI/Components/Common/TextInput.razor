@@ -1,0 +1,14 @@
+@inherits InputBase<string>
+
+<input @attributes="AdditionalAttributes"
+    class="w-full px-3 py-2 bg-background-700 border border-background-500 rounded-lg outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors @CssClass"
+    @bind="@CurrentValue" @bind:event="oninput" />
+
+@code {
+    protected override bool TryParseValueFromString(string? value, out string result, out string validationErrorMessage)
+    {
+        result = value ?? string.Empty;
+        validationErrorMessage = "";
+        return true;
+    }
+}
