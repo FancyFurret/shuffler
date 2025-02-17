@@ -1,7 +1,11 @@
+@implements IAsyncDisposable
+
+@inject IJSRuntime Js
+
 <PortalContent>
-    <div class="fixed inset-0 pointer-events-none @ZIndex">
-        <div class="absolute inset-0 pointer-events-auto @Class" @onclick="OnClick" @oncontextmenu:preventDefault
-            @oncontextmenu="OnClick"></div>
+    <div @ref="_element"
+        class="fixed inset-0 @ZIndex @(AllowClickThrough ? "pointer-events-none" : "pointer-events-auto")">
+        <div class="absolute inset-0 @Class"></div>
     </div>
 </PortalContent>
 
@@ -9,4 +13,62 @@
     [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
     [Parameter] public string Class { get; set; } = string.Empty;
     [Parameter] public string ZIndex { get; set; } = "z-10";
+    [Parameter] public bool AllowClickThrough { get; set; }
+    [Parameter] public ElementReference? ContentElement { get; set; }
+
+    private ElementReference _element;
+    private IJSObjectReference? _module;
+    private DotNetObjectReference<ClickBlocker>? _dotNetRef;
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _module = await Js.InvokeAsync<IJSObjectReference>("import", "./Components/Common/ClickBlocker.razor.js");
+            _dotNetRef = DotNetObjectReference.Create(this);
+        }
+
+        await Initialize();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await Initialize();
+        await base.OnParametersSetAsync();
+    }
+
+    private async Task Initialize()
+    {
+        if (!_initialized && ContentElement != null && _module != null && _dotNetRef != null)
+        {
+            await _module.InvokeVoidAsync("initClickBlocker", _element, _dotNetRef, ContentElement);
+            _initialized = true;
+        }
+    }
+
+    [JSInvokable]
+    public async Task HandleClick(MouseEventArgs args)
+    {
+        await OnClick.InvokeAsync(args);
+    }
+
+    async ValueTask IAsyncDisposable.DisposeAsync()
+    {
+        try
+        {
+            if (_module != null)
+            {
+                await _module.InvokeVoidAsync("cleanupClickBlocker", _element);
+                await _module.DisposeAsync();
+            }
+
+            _dotNetRef?.Dispose();
+        }
+        catch
+        {
+            // Ignore disposal errors
+        }
+    }
+
 }

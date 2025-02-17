@@ -1,0 +1,90 @@
+@using System.ComponentModel.DataAnnotations
+@using Blazor.Heroicons
+@using Shuffler.Core
+@using Shuffler.Core.Models
+
+@inherits ObserverComponent
+@inject ShufflerCore Shuffler
+
+<div class="p-3 bg-background-800/30 backdrop-blur-sm rounded-lg mb-4 border border-background-700/50">
+    
+    @if (Preset == null)
+    {
+        return;
+    }
+    
+    <div class="space-y-2">
+        @if (CurrentGame != null && CurrentPlayer != null)
+        {
+            <!-- Current Status -->
+            <div class="flex items-center gap-3">
+                <div class="p-1.5 bg-background-700/50 backdrop-blur-sm rounded-lg">
+                    <GameImage Game="CurrentGame.GameConfig" Size="GameImage.GameImageSize.Icon" Class="w-8"/>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="font-medium truncate">@CurrentGame.GameConfig.Name</div>
+                    <div class="text-xs text-foreground-400">@CurrentPlayer.Config.Name</div>
+                </div>
+            </div>
+        }
+
+        <!-- Timer with Progress Bar -->
+        <div class="space-y-3 border-t border-background-700/50 pt-2">
+            @if (Preset.ShowNextUpcoming)
+            {
+                <div class="flex items-center justify-between text-sm mb-1">
+                    <span class="text-foreground-400">Next Swap</span>
+                    <span
+                        class="font-bold text-foreground-300">@($"{TimeLeft / 60}:{TimeLeft % 60:D2}")</span>
+                </div>
+                <div class="h-1 bg-background-700/50 backdrop-blur-sm rounded-lg overflow-hidden">
+                    <div
+                        class="h-full bg-gradient-to-r from-gradient-1 via-gradient-2 to-gradient-1 transition-all duration-1000 ease-linear rounded-lg animate-progress"
+                        style="width: @(GetProgressPercentage())%; background-size: 200% 100%">
+                    </div>
+                </div>
+            }
+            <StyledButton OnClick="HandleSwap" Icon="arrow-path" Text="Swap Now"
+                          Shape="ButtonShape.Square"
+                          Class="w-full" Size="ButtonSize.Small"/>
+        </div>
+
+        @if (Preset.ShowNextUpcoming && NextGame != null && NextPlayer != null)
+        {
+            <!-- Next Up -->
+            <div class="flex items-center gap-3 border-t border-background-700/50 pt-2">
+                <div class="p-1.5 bg-background-700/50 backdrop-blur-sm rounded-lg">
+                    <GameImage Game="NextGame.GameConfig" Size="GameImage.GameImageSize.Icon" Class="w-8"/>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <div class="font-medium truncate">@NextGame.GameConfig.Name</div>
+                    <div class="text-xs text-foreground-400">@NextPlayer.Config.Name</div>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    private ShufflerSession Session => Observe(Shuffler.Session);
+    private ShufflerPreset? Preset => Session.Preset;
+    private SessionGame? CurrentGame => Session.CurrentGame;
+    private SessionPlayer? CurrentPlayer => Session.CurrentPlayer;
+    private SessionGame? NextGame => Session.NextGame;
+    private SessionPlayer? NextPlayer => Session.NextPlayer;
+    private DateTime? NextSwapTime => Session.NextSwapTime;
+
+    private int TimeLeft => NextSwapTime.HasValue ? (int)(NextSwapTime.Value - DateTime.Now).TotalSeconds : 0;
+
+    // private double GetProgressPercentage() => (_timeLeft * 100.0) / _totalTime;
+    private double GetProgressPercentage()
+    {
+        return 50;
+    }
+
+    private async Task HandleSwap()
+    {
+        await Task.CompletedTask;
+    }
+
+}

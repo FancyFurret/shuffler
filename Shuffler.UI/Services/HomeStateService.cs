@@ -8,11 +8,13 @@ public class HomeStateService
     private readonly ShufflerConfig _config;
     private readonly ConfigurationService _configService;
     private ShufflerPreset? _savedPreset;
+    private ShufflerCore _core;
 
-    public HomeStateService(ShufflerConfig config, ConfigurationService configService)
+    public HomeStateService(ShufflerConfig config, ConfigurationService configService, ShufflerCore core)
     {
         _config = config;
         _configService = configService;
+        _core = core;
         LoadLastUsedPreset();
     }
 
@@ -73,18 +75,13 @@ public class HomeStateService
     public void SetHasChanges(bool hasChanges = true)
     {
         HasChanges = hasChanges;
+        _ = _core.UpdatePreset(CurrentPreset);
     }
 
     public void Clear()
     {
         _savedPreset = null;
-        CurrentPreset = new ShufflerPreset
-        {
-            Name = "Unsaved Preset",
-            Games = new List<PresetGame>(),
-            MinShuffleTime = 30,
-            MaxShuffleTime = 60
-        };
+        CurrentPreset = ShufflerPreset.Default();
         CurrentPresetId = null;
         _config.LastUsedPresetId = null;
         SaveConfig();

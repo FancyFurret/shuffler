@@ -48,27 +48,10 @@ static class Program
         var serviceProvider = services.BuildServiceProvider();
 
         // Look up Steam App IDs for games that don't have them set
-        var core = serviceProvider.GetRequiredService<ShufflerCore>();
         var gameInfoService = serviceProvider.GetRequiredService<GameInfoService>();
 
         // Preload game info for all games
         Task.Run(() => gameInfoService.PreloadGamesAsync(config.Games)).ConfigureAwait(false);
-
-        var homeState = serviceProvider.GetRequiredService<HomeStateService>();
-        var preset = homeState.CurrentPreset;
-
-        Task.Run(() =>
-        {
-            // Load last used players or default to first 4
-            var lastUsedPlayers = homeState.LastUsedPlayerNames.Count > 0
-                ? config.Players.Where(p => homeState.LastUsedPlayerNames.Contains(p.Name))
-                : config.Players.Take(4);
-
-            foreach (var player in lastUsedPlayers)
-                core.AddPlayer(player);
-
-            return Task.FromResult(core.LoadPreset(preset));
-        });
 
         form.Init(serviceProvider);
         Application.Run(form);

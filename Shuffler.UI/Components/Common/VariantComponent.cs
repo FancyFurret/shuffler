@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Shuffler.UI.Utilities;
+using System.ComponentModel;
 
 namespace Shuffler.UI.Components.Common;
 
@@ -16,6 +17,7 @@ public abstract class VariantComponent<TSlot> : ComponentBase
     private static Variants<TSlot>? _staticVariants;
 
     [Parameter]
+    [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
     public string Class { get; set; } = "";
 
     protected abstract Variants<TSlot> CreateVariants();

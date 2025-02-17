@@ -25,15 +25,9 @@
         <PresetViewer Session="Session" />
     </div>
 
-    <PlayerDrawer Session="Session" OnPlayerAdded="AddPlayer" />
+    <PlayerDrawer Session="Session" />
 </div>
 
 @code {
     private ShufflerSession Session => Observe(Shuffler.Session);
-
-    private void AddPlayer(PlayerConfig config)
-    {
-        Shuffler.AddPlayer(config);
-        HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
-    }
 }

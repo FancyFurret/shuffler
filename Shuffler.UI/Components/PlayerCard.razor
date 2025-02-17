@@ -69,7 +69,7 @@
         </div>
 
         <!-- Actions -->
-        <div class="mt-2 flex gap-2" @onclick:stopPropagation>
+        <div class="mt-2 flex gap-2">
             @if (Player.AssignedController != null)
             {
                 <StyledButton OnClick="OnRemoveController" Text="Remove Controller" Size="ButtonSize.Small"
@@ -88,11 +88,11 @@
             }
             <PopupMenu @ref="_menu" IsActive="@Player.IsActive">
                 <PopupMenuItem Text="Change Color" Icon="swatch" OnClick="@OnChangeColor" />
-                <PopupMenuItem Text="Swap Player" Icon="arrows-right-left" OnClick="@OnSwapPlayer" />
+                <PopupMenuItem Text="Swap Player" Icon="arrows-right-left" OnClick="@OnSwapPlayerClick" />
                 <PopupMenuItem Text="Test Vibration" Icon="signal" OnClick="@(() => Core.TestVibration(Player))"
                     Visible="@(Player.AssignedController != null)" />
                 <PopupMenuItem Text="@(Player.IsActive ? "Disable Player" : "Enable Player")"
-                    Icon="@(Player.IsActive ? "pause" : "play")" OnClick="@(() => Core.TogglePlayerActive(Player))" />
+                    Icon="@(Player.IsActive ? "pause" : "play")" OnClick="@OnToggleActive" />
             </PopupMenu>
         </div>
     </div>
@@ -128,16 +128,13 @@
 
     [Parameter] public required SessionPlayer Player { get; set; }
     [Parameter] public EventCallback<SessionPlayer> OnSelectPlayer { get; set; }
+    [Parameter] public EventCallback OnRemove { get; set; }
+    [Parameter] public EventCallback OnToggleActive { get; set; }
+    [Parameter] public EventCallback<PlayerConfig> OnSwapPlayer { get; set; }
 
     private void OnSelect()
     {
         OnSelectPlayer.InvokeAsync(Player);
-    }
-
-    private void OnRemove()
-    {
-        Core.RemovePlayer(Player);
-        HomeState.UpdateLastUsedPlayers(Core.Session.Value.Players.Select(p => p.Config));
     }
 
     private void OnRightClick(MouseEventArgs e)
@@ -151,10 +148,10 @@
         {
             var preset = await _colorPicker.Show((int)e.ClientX, (int)e.ClientY);
             if (preset == null) return;
-            
+
             Player.Config.Color = preset.Gradient;
             await ConfigService.SaveAsync(Config);
-            
+
             StateHasChanged();
         }
     }
@@ -169,8 +166,7 @@
 
             var result = await Core.WaitForControllerInput(_waitCts.Token);
             if (result != null)
-                if (Core.AssignController(Player, result.Controller))
-                    await Core.TestSuccessVibration(Player);
+                await Core.AssignController(Player, result.Controller);
         }
         finally
         {
@@ -187,15 +183,14 @@
         StateHasChanged();
     }
 
-    private async Task OnSwapPlayer(MouseEventArgs e)
+    private async Task OnSwapPlayerClick(MouseEventArgs e)
     {
         if (_playerPicker != null)
         {
             var config = await _playerPicker.Show((int)e.ClientX, (int)e.ClientY);
             if (config == null) return;
-            
-            Player.Config = config;
-            StateHasChanged();
+
+            await OnSwapPlayer.InvokeAsync(config);
         }
     }
 

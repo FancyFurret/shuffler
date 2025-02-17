@@ -1,7 +1,9 @@
 @using Shuffler.Core
 @using Shuffler.Core.Models
-@using Shuffler.UI.Components.Common
 @using Blazor.Heroicons
+@using Shuffler.UI.Services
+@inject ShufflerCore Core
+@inject HomeStateService HomeState
 
 <div class="w-80 border-l border-background-700/50 backdrop-blur-xl bg-background-900/60 flex flex-col">
     <div class="flex-shrink-0 p-6 pb-3 border-b border-background-700/50">
@@ -11,24 +13,22 @@
         <div class="space-y-3">
             @foreach (var player in Session.Players)
             {
-                <PlayerCard Player="player" />
+                <PlayerCard Player="player" OnRemove="@(() => RemovePlayer(player))"
+                            OnToggleActive="@(() => TogglePlayerActive(player))"
+                            OnSwapPlayer="@((PlayerConfig config) => SwapPlayer(player, config))"/>
             }
         </div>
         <div class="mt-4">
             <StyledButton Icon="plus" IconType="HeroiconType.Solid" Variant="ButtonVariant.Transparent"
-                Class="w-full h-10" OnClick="OnAddPlayer" />
+                          Class="w-full h-10" OnClick="OnAddPlayer"/>
         </div>
     </div>
 </div>
 
-<PlayerPickerPopup @ref="_playerPicker" />
+<PlayerPickerPopup @ref="_playerPicker"/>
 
 @code {
-    [Parameter]
-    public ShufflerSession Session { get; set; } = null!;
-
-    [Parameter]
-    public EventCallback<PlayerConfig> OnPlayerAdded { get; set; }
+    [Parameter] public ShufflerSession Session { get; set; } = null!;
 
     private PlayerPickerPopup? _playerPicker;
 
@@ -38,7 +38,27 @@
         {
             var config = await _playerPicker.Show((int)e.ClientX, (int)e.ClientY);
             if (config != null)
-                await OnPlayerAdded.InvokeAsync(config);
+            {
+                Core.AddPlayer(config);
+                HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
+            }
         }
     }
+
+    private void RemovePlayer(SessionPlayer player)
+    {
+        Core.RemovePlayer(player);
+        HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
+    }
+
+    private void TogglePlayerActive(SessionPlayer player)
+    {
+        Core.TogglePlayerActive(player);
+    }
+
+    private void SwapPlayer(SessionPlayer player, PlayerConfig newConfig)
+    {
+        Core.SwapPlayer(player, newConfig);
+    }
+
 }

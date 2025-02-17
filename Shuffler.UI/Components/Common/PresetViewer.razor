@@ -55,24 +55,57 @@
             </div>
         </div>
 
-        <div class="mt-4 flex items-start gap-6">
-            <div class="w-40">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-foreground-400">Min Time:</label>
-                    <NumberInput @bind-Value="CurrentPreset.MinShuffleTime" Class="w-20"
-                                 @onchange="() => HomeState.SetHasChanges()"/>
+        <div class="mt-4 flex flex-wrap gap-y-4 gap-x-6">
+            <div class="flex items-start gap-6">
+                <div class="w-40">
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-foreground-400">Min Time:</label>
+                        <NumberInput @bind-Value="CurrentPreset.MinShuffleTime" Class="w-20"
+                                     @onchange="() => HomeState.SetHasChanges()"/>
+                    </div>
+                    <ValidationMessage For="@(() => CurrentPreset.MinShuffleTime)"
+                                       class="text-destructive-500 text-xs mt-1"/>
                 </div>
-                <ValidationMessage For="@(() => CurrentPreset.MinShuffleTime)"
-                                   class="text-destructive-500 text-xs mt-1"/>
+                <div class="w-40">
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-foreground-400">Max Time:</label>
+                        <NumberInput @bind-Value="CurrentPreset.MaxShuffleTime" Class="w-20"
+                                     @onchange="() => HomeState.SetHasChanges()"/>
+                    </div>
+                    <ValidationMessage For="@(() => CurrentPreset.MaxShuffleTime)"
+                                       class="text-destructive-500 text-xs mt-1"/>
+                </div>
             </div>
-            <div class="w-40">
-                <div class="flex items-center gap-2">
-                    <label class="text-sm text-foreground-400">Max Time:</label>
-                    <NumberInput @bind-Value="CurrentPreset.MaxShuffleTime" Class="w-20"
-                                 @onchange="() => HomeState.SetHasChanges()"/>
+            
+            <div class="flex items-start gap-6">
+                <div class="w-60">
+                    <div class="flex items-center gap-2 group relative">
+                        <label class="text-sm text-foreground-400 whitespace-nowrap">Game Mode:</label>
+                        <FormSelect TValue="SwitchMode" @bind-Value="CurrentPreset.GameSwitchMode" 
+                                   OptionText="@(mode => $"{mode.GetDisplayName()}")"
+                                   OptionDescription="@(mode => mode.GetDescription())"
+                                   OptionIcon="@(mode => mode.GetIcon())"
+                                   Options="@SwitchModes"
+                                   @onchange="() => HomeState.SetHasChanges()"/>
+                    </div>
                 </div>
-                <ValidationMessage For="@(() => CurrentPreset.MaxShuffleTime)"
-                                   class="text-destructive-500 text-xs mt-1"/>
+                <div class="w-60">
+                    <div class="flex items-center gap-2 group relative">
+                        <label class="text-sm text-foreground-400 whitespace-nowrap">Player Mode:</label>
+                        <FormSelect TValue="SwitchMode" @bind-Value="CurrentPreset.PlayerSwitchMode" 
+                                   OptionText="@(mode => $"{mode.GetDisplayName()}")"
+                                   OptionDescription="@(mode => mode.GetDescription())"
+                                   OptionIcon="@(mode => mode.GetIcon())"
+                                   Options="@SwitchModes"
+                                   @onchange="() => HomeState.SetHasChanges()"/>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-6">
+                <CheckboxInput Label="Show Next Up" 
+                             @bind-Value="CurrentPreset.ShowNextUpcoming"
+                             @onchange="() => HomeState.SetHasChanges()" />
             </div>
         </div>
 
@@ -201,6 +234,8 @@
 
     private bool _isRenaming;
 
+    private static IEnumerable<SwitchMode> SwitchModes => Enum.GetValues<SwitchMode>();
+
     private class PresetNameModel
     {
         [Required(ErrorMessage = "Preset name is required")]
@@ -229,6 +264,7 @@
             return;
         }
 
+        // TODO: prevent duping these? losing info
         var presetToSave = new ShufflerPreset
         {
             Id = CurrentPresetId ?? Guid.NewGuid().ToString(),
@@ -325,14 +361,9 @@
         var name = await _presetNameDialog!.Show(new PresetNameModel());
         if (name != null)
         {
-            var newPreset = new ShufflerPreset
-            {
-                Name = name.Name,
-                Games = new List<PresetGame>(),
-                MinShuffleTime = 30,
-                MaxShuffleTime = 60
-            };
-            HomeState.SetCurrentPreset(newPreset);
+            var defaultPreset = ShufflerPreset.Default();
+            defaultPreset.Name = name.Name;
+            HomeState.SetCurrentPreset(defaultPreset);
         }
     }
 
@@ -378,5 +409,4 @@
     {
         HomeState.RevertChanges();
     }
-
 }

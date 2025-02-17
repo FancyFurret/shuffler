@@ -1,22 +1,41 @@
 @using Microsoft.AspNetCore.Components.Forms
+@using Blazor.Heroicons
 @typeparam TValue
 @inherits InputBase<TValue>
 
-<select @attributes="AdditionalAttributes"
-    class="w-full px-3 py-2 bg-background-700 border border-background-500 rounded-lg outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors @CssClass"
-    @bind="@CurrentValue" @bind:event="onchange">
-    @if (Options != null)
-    {
-        @foreach (var option in Options)
+<div class="relative w-full">
+    <button type="button" @onclick="ToggleMenu" @onfocus="OnFocus" @onblur="OnBlur" tabindex="0"
+        class="w-full px-3 py-2 bg-background-800 border border-background-600 rounded-lg outline-none focus:ring-1 focus:ring-primary-500/50 focus:border-primary-500/50 transition-colors flex items-center justify-between gap-2 @CssClass">
+        <span class="truncate">@(OptionText?.Invoke(CurrentValue) ?? CurrentValue?.ToString())</span>
+        <Heroicon Name="chevron-down" Type="HeroiconType.Mini" class="w-4 h-4 text-foreground-400" />
+    </button>
+
+    <PopupMenu @ref="_menu" HideTrigger="true" PositionPriority="select">
+        @if (Options != null)
         {
-            <option value="@option">@(OptionText?.Invoke(option) ?? option?.ToString())</option>
+            @foreach (var option in Options)
+            {
+                var isSelected = EqualityComparer<TValue>.Default.Equals(option, CurrentValue);
+                <div class="group/item relative">
+                    <PopupMenuItem Text="@(OptionText?.Invoke(option) ?? option?.ToString() ?? "")"
+                                 Icon="@(OptionIcon?.Invoke(option))"
+                                 OnClick="() => OnOptionSelected(option)" 
+                                 CssClass="@(isSelected ? "bg-background-700" : "")" />
+                    @if (OptionDescription != null)
+                    {
+                        <div class="hidden group-hover/item:block absolute z-50 top-0 left-full ml-2 p-2 bg-background-800 rounded shadow-lg text-sm w-64">
+                            @OptionDescription(option)
+                        </div>
+                    }
+                </div>
+            }
         }
-    }
-    else
-    {
-        @ChildContent
-    }
-</select>
+        else
+        {
+            @ChildContent
+        }
+    </PopupMenu>
+</div>
 
 @code {
     [Parameter]
@@ -27,6 +46,52 @@
 
     [Parameter]
     public Func<TValue, string>? OptionText { get; set; }
+
+    [Parameter]
+    public Func<TValue, string>? OptionDescription { get; set; }
+
+    [Parameter]
+    public Func<TValue, string>? OptionIcon { get; set; }
+
+    private PopupMenu? _menu;
+    private bool _isOpen;
+    private bool _isFocused;
+
+    private void OnFocus()
+    {
+        _isFocused = true;
+    }
+
+    private void OnBlur()
+    {
+        _isFocused = false;
+        if (_isOpen)
+        {
+            _menu?.Hide();
+            _isOpen = false;
+        }
+    }
+
+    private void ToggleMenu()
+    {
+        if (!_isFocused) return;
+
+        if (_isOpen)
+            _menu?.Hide();
+        else
+            _menu?.Show();
+        _isOpen = !_isOpen;
+    }
+
+    private async Task OnOptionSelected(TValue value)
+    {
+        CurrentValue = value;
+        await ValueChanged.InvokeAsync(value);
+        if (AdditionalAttributes != null && AdditionalAttributes.TryGetValue("onchange", out var onchangeHandler))
+            await ((EventCallback<ChangeEventArgs>)onchangeHandler).InvokeAsync(new ChangeEventArgs { Value = value });
+        _menu?.Hide();
+        _isOpen = false;
+    }
 
     protected override bool TryParseValueFromString(string? value, out TValue result, out string validationErrorMessage)
     {

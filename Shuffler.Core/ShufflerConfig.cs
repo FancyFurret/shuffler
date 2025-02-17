@@ -19,15 +19,34 @@ public record ShufflerConfig
 
 public record GameConfig
 {
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
     [Required(ErrorMessage = "Game name is required")]
     public required string Name { get; set; }
 
     [Required(ErrorMessage = "Game path is required")]
     public required string ExePath { get; set; }
 
-    public int? SteamAppId { get; set; }
     public bool EnableHook { get; set; }
     public bool Suspend { get; set; }
+
+    public int? SteamAppId { get; set; }
+}
+
+public record PlayerConfig
+{
+    [Required(ErrorMessage = "Name is required")]
+    [MinLength(2, ErrorMessage = "Name must be at least 2 characters")]
+    public string Name { get; set; } = string.Empty;
+
+    [Required(ErrorMessage = "Color is required")]
+    public string Color { get; set; } = string.Empty;
+
+    [RegularExpression(@"^(?:https?:\/\/)?(?:www\.)?steamcommunity\.com\/(?:id\/[a-zA-Z0-9_-]+|profiles\/\d+)\/?$",
+        ErrorMessage = "Please enter a valid Steam profile URL")]
+    public string? SteamProfile { get; set; }
+
+    public ulong? DiscordUserId { get; set; }
 }
 
 public class ValidSteamPathAttribute : ValidationAttribute

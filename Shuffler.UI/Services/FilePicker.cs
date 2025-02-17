@@ -1,7 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading.Tasks;
-
 namespace Shuffler.UI.Services;
 
 public class FileType
@@ -21,7 +17,7 @@ public static class FilePicker
 {
     public static Task<string?> PickFileAsync(FilePickerOptions options)
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        var dialog = new OpenFileDialog
         {
             Title = options.Title ?? "Select File",
             InitialDirectory = options.InitialDirectory ?? Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
@@ -41,6 +37,6 @@ public static class FilePicker
         }
 
         var result = dialog.ShowDialog();
-        return Task.FromResult(result == true ? dialog.FileName : null);
+        return Task.FromResult(result == DialogResult.OK ? dialog.FileName : null);
     }
 }

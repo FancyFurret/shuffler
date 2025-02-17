@@ -9,7 +9,7 @@
             Variant="@(IsActive? ButtonVariant.Default: ButtonVariant.Transparent)" Class="!w-8 !aspect-square !p-0" />
     }
 
-    <Popup @ref="_overlay">
+    <Popup @ref="_overlay" PositionPriority="@PositionPriority">
         <div class="w-40 py-1 rounded-lg bg-background-800 border border-background-600 shadow-lg pointer-events-auto"
             @onclick:stopPropagation>
             <CascadingValue Value="this">
@@ -23,6 +23,7 @@
     [Parameter] public bool IsActive { get; set; }
     [Parameter] public RenderFragment? ChildContent { get; set; }
     [Parameter] public bool HideTrigger { get; set; }
+    [Parameter] public string? PositionPriority { get; set; }
     private Popup? _overlay;
 
     private void ToggleMenu()

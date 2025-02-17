@@ -37,7 +37,7 @@ public class GameProcess : IAsyncDisposable
     private TaskCompletionSource<bool>? _processStartTcs;
     private TaskCompletionSource<bool>? _processStopTcs;
 
-    public GameProcess(GameConfig config, ProcessMonitor processMonitor)
+    public GameProcess(GameConfig config, ProcessMonitor processMonitor, bool loading)
     {
         Config = config;
 
@@ -47,8 +47,10 @@ public class GameProcess : IAsyncDisposable
             OnProcessCreated,
             OnProcessTerminated
         );
+        
+        _state.Value = loading ? GameState.Loading : GameState.Stopped;
     }
-
+    
     private void OnProcessCreated(int processId)
     {
         Logger.Info($"Process created: {processId}");
@@ -62,9 +64,15 @@ public class GameProcess : IAsyncDisposable
         if (_currentProcess?.Id == processId)
             _state.Value = GameState.Stopped;
     }
-    
-    public async Task ConnectToExistingProcess(Process process, CancellationToken cancellationToken = default)
+
+    public async Task ConnectToExistingProcess(Process? process, CancellationToken cancellationToken = default)
     {
+        if (process == null)
+        {
+            _state.Value = GameState.Stopped;
+            return;
+        }
+        
         var wasSuspended = ProcessManager.IsSuspended(process);
         if (wasSuspended) ProcessManager.ResumeProcess(process.Handle);
         await Connect(process.Id, true);

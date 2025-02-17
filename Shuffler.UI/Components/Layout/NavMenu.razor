@@ -1,8 +1,6 @@
 ﻿@inherits ObserverComponent
 @using Shuffler.Core
-@using Blazor.Heroicons
 @using Shuffler.UI.Overlay
-@using static Shuffler.UI.Components.Common.StyledButton
 @inject ShufflerCore Shuffler
 @inject OverlayService Overlay
 @inject ShufflerConfig Config
@@ -18,22 +16,6 @@
     private string _nextPlayer = "Player 2";
     private int _timeLeft = 300; // 5 minutes in seconds
     private int _totalTime = 300; // Total time for the swap
-
-    private double GetProgressPercentage() => (_timeLeft * 100.0) / _totalTime;
-
-    private async Task HandleSwap()
-    {
-        Overlay.ShowGameSwitch(
-            "Super Mario 64 but it has a ",
-            Config.Players[0]!,
-            "Zelda",
-            Config.Players[1]!,
-            timeLeft: 30,
-            totalTime: 300
-        );
-        // Dummy function for now
-        await Task.CompletedTask;
-    }
 
 }
 
@@ -51,89 +33,16 @@
             Shuffler
         </h1>
         <div class="flex flex-col gap-4 flex-grow px-4">
-            <NavMenuItem Text="Home" Icon="squares-2x2" Path="/"/>
-            <NavMenuItem Text="Presets" Icon="cursor-arrow-rays" Path="/presets"/>
-            <NavMenuItem Text="Players" Icon="user-group" Path="/players"/>
-            <NavMenuItem Text="Games" Icon="puzzle-piece" Path="/games"/>
-            <NavMenuItem Text="Controls" Icon="adjustments-horizontal" Path="/controller-layouts"/>
-            <NavMenuItem Text="Settings" Icon="cog-6-tooth" Path="/settings"/>
-            <NavMenuItem Text="Logs" Icon="document-text" Path="/logs"/>
+            <NavMenuItem Text="Home" Icon="squares-2x2" Path="/" />
+            <NavMenuItem Text="Presets" Icon="cursor-arrow-rays" Path="/presets" />
+            <NavMenuItem Text="Players" Icon="user-group" Path="/players" />
+            <NavMenuItem Text="Games" Icon="puzzle-piece" Path="/games" />
+            <NavMenuItem Text="Controls" Icon="adjustments-horizontal" Path="/controller-layouts" />
+            <NavMenuItem Text="Settings" Icon="cog-6-tooth" Path="/settings" />
+            <NavMenuItem Text="Logs" Icon="document-text" Path="/logs" />
         </div>
 
-        <div class="mt-auto">
-            <div class="p-3 bg-background-800/30 backdrop-blur-sm rounded-lg mb-4 border border-background-700/50">
-                <div class="space-y-2">
-                    <!-- Current Status -->
-                    <div class="flex items-center gap-3">
-                        <div class="p-1.5 bg-background-700/50 backdrop-blur-sm rounded-lg">
-                            <Heroicon Name="puzzle-piece" Type="HeroiconType.Solid" class="w-5 h-5 text-purple-500"/>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="font-medium truncate">@_currentGame</div>
-                            <div class="text-xs text-foreground-400">@_currentPlayer</div>
-                        </div>
-                    </div>
-
-                    <!-- Timer with Progress Bar -->
-                    <div class="space-y-3 border-t border-background-700/50 pt-2">
-                        <div class="flex items-center justify-between text-sm mb-1">
-                            <span class="text-foreground-400">Next Swap</span>
-                            <span
-                                class="font-bold text-foreground-300">@($"{_timeLeft / 60}:{_timeLeft % 60:D2}")</span>
-                        </div>
-                        <div class="h-1 bg-background-700/50 backdrop-blur-sm rounded-lg overflow-hidden">
-                            <div
-                                class="h-full bg-gradient-to-r from-gradient-1 via-gradient-2 to-gradient-1 transition-all duration-1000 ease-linear rounded-lg animate-progress"
-                                style="width: @(GetProgressPercentage())%; background-size: 200% 100%">
-                            </div>
-                        </div>
-                        <StyledButton OnClick="HandleSwap" Icon="arrow-path" Text="Swap Now"
-                                      Shape="ButtonShape.Square"
-                                      Class="w-full" Size="ButtonSize.Small"/>
-                    </div>
-
-                    <!-- Next Up -->
-                    <div class="flex items-center gap-3 border-t border-background-700/50 pt-2">
-                        <div class="p-1.5 bg-background-700/50 backdrop-blur-sm rounded-lg">
-                            <Heroicon Name="puzzle-piece" Type="HeroiconType.Solid" class="w-5 h-5 text-pink-500"/>
-                        </div>
-                        <div class="min-w-0 flex-1">
-                            <div class="font-medium truncate">@_nextGame</div>
-                            <div class="text-xs text-foreground-400">@_nextPlayer</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="flex gap-2">
-                @if (State == ShufflerState.Stopped)
-                {
-                    <StyledButton Text="Start" Icon="play" Size="ButtonSize.Large"
-                                  Class="flex-grow bg-green-500/90 hover:bg-green-600/90 backdrop-blur-sm"
-                                  OnClick="Shuffler.StartAsync"/>
-                }
-                @if (State == ShufflerState.Paused)
-                {
-                    <StyledButton Text="Resume" Icon="play" Size="ButtonSize.Large"
-                                  Class="flex-grow bg-green-500/90 hover:bg-green-600/90 backdrop-blur-sm"
-                                  OnClick="Shuffler.StartAsync"/>
-                    <StyledButton Icon="stop"
-                                  Size="ButtonSize.Large"
-                                  Class="bg-red-500/90 hover:bg-red-600/90 backdrop-blur-sm w-[44px]"
-                                  OnClick="Shuffler.StopAsync"/>
-                }
-                @if (State == ShufflerState.Started)
-                {
-                    <StyledButton Text="Stop" Icon="stop" Size="ButtonSize.Large"
-                                  Class="flex-grow bg-red-500/90 hover:bg-red-600/90 backdrop-blur-sm"
-                                  OnClick="Shuffler.StopAsync"/>
-                    <StyledButton Icon="pause"
-                                  Size="ButtonSize.Large"
-                                  Class="bg-yellow-500/90 hover:bg-yellow-600/90 backdrop-blur-sm w-[44px]"
-                                  OnClick="Shuffler.Pause"/>
-                }
-            </div>
-        </div>
+        <SessionControls />
     </div>
 </div>
 
@@ -145,11 +54,10 @@
         overflow: hidden;
         z-index: 0;
         background: linear-gradient(135deg,
-        var(--color-gradient-1, rgba(147, 51, 234, 0.3)) 0%,
-        rgba(13, 13, 13, 0.95) 30%,
-        rgba(13, 13, 13, 0.95) 70%,
-        var(--color-gradient-2, rgba(236, 72, 153, 0.3)) 100%
-        );
+                var(--color-gradient-1, rgba(147, 51, 234, 0.3)) 0%,
+                rgba(13, 13, 13, 0.95) 30%,
+                rgba(13, 13, 13, 0.95) 70%,
+                var(--color-gradient-2, rgba(236, 72, 153, 0.3)) 100%);
     }
 
     .gradient-overlay {
@@ -207,36 +115,43 @@
         0% {
             background-position: 0% 50%;
         }
+
         100% {
             background-position: 200% 50%;
         }
     }
 
-    @@keyframes moveOrbs {
-        0%, 100% {
+        @@keyframes moveOrbs {
+
+        0%,
+        100% {
             transform: translate(0, 0);
         }
+
         50% {
             transform: translate(30px, 30px);
         }
     }
 
-    @@keyframes gradient {
+        @@keyframes gradient {
         0% {
             background-position: 0% 0%;
         }
+
         100% {
             background-position: -200% 200%;
         }
     }
 
-    @@keyframes progress {
+        @@keyframes progress {
         0% {
             background-position: 0% 50%;
         }
+
         50% {
             background-position: 100% 50%;
         }
+
         100% {
             background-position: 0% 50%;
         }

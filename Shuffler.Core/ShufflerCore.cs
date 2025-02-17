@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using Shuffler.Core.Models;
-using Shuffler.Core.Services;
 
 namespace Shuffler.Core;
 
@@ -43,22 +37,46 @@ public class ShufflerCore : IDisposable
     {
         _config = config;
         _gamepadManager = gamepadManager;
+        _isLoading.Value = true;
+        _ = Init();
     }
 
-    public IEnumerable<ShufflerController> GetAvailableControllers() =>
-        _gamepadManager.GetAvailableControllers(_session.Value.Players);
-
-    public bool AssignController(SessionPlayer player, ShufflerController controller)
+    private async Task Init()
     {
-        var result = _gamepadManager.AssignController(player, controller, _session.Value.Players);
-        if (result)
-            _session.Changed();
-        return result;
+        var lastUsedPlayers = _config.LastUsedPlayerNames.Count > 0
+            ? _config.Players.Where(p => _config.LastUsedPlayerNames.Contains(p.Name))
+            : _config.Players.Take(4);
+
+        foreach (var player in lastUsedPlayers)
+            AddPlayer(player);
+
+        var preset = _config.Presets.FirstOrDefault(p => p.Id == _config.LastUsedPresetId);
+        if (preset != null)
+            await LoadPreset(preset);
+        else
+            await LoadPreset(ShufflerPreset.Default());
+
+
+        _state.Value = ShufflerState.Started;
+        RollNextGame();
+        RollNextPlayer();
+        _session.Value.CurrentGame = _session.Value.NextGame;
+        _session.Value.CurrentPlayer = _session.Value.NextPlayer;
+        RollNextGame();
+        RollNextPlayer();
+        _isLoading.Value = false;
+    }
+
+    public async Task AssignController(SessionPlayer player, ShufflerController controller)
+    {
+        player.AssignedController = controller;
+        await _gamepadManager.VibrateSuccess(player.AssignedController);
+        _session.Changed();
     }
 
     public void UnassignController(SessionPlayer player)
     {
-        _gamepadManager.UnassignController(player);
+        player.AssignedController = null;
         _session.Changed();
     }
 
@@ -74,13 +92,134 @@ public class ShufflerCore : IDisposable
         _gamepadManager.Vibrate(player.AssignedController, 1.0f, 500);
     }
 
-    public Task TestSuccessVibration(SessionPlayer player)
+    public void AddPlayer(PlayerConfig config)
     {
-        if (player.AssignedController == null)
-            return Task.CompletedTask;
-        return _gamepadManager.VibrateSuccess(player.AssignedController);
+        var players = _session.Value.Players.ToList();
+        players.Add(new SessionPlayer { Config = config });
+        UpdatePlayers(players);
     }
 
+    public void RemovePlayer(SessionPlayer player)
+    {
+        if (player.AssignedController != null)
+            UnassignController(player);
+
+        var players = _session.Value.Players.ToList();
+        players.Remove(player);
+        UpdatePlayers(players);
+    }
+
+    public void TogglePlayerActive(SessionPlayer player)
+    {
+        player.IsActive = !player.IsActive;
+        UpdatePlayers(_session.Value.Players.ToList());
+    }
+
+    public void SwapPlayer(SessionPlayer player, PlayerConfig newConfig)
+    {
+        player.Config = newConfig;
+        UpdatePlayers(_session.Value.Players.ToList());
+    }
+
+    private void UpdatePlayers(List<SessionPlayer> players)
+    {
+        var addedPlayers = players.Where(p => !_session.Value.Players.Contains(p)).ToList();
+
+        // Update the players list
+        _session.Value.Players = players;
+
+        // Reset play time for all players
+        foreach (var player in _session.Value.Players)
+            player.TotalPlayTime = TimeSpan.Zero;
+
+        if (_session.Value.Preset?.PlayerSwitchMode == SwitchMode.Bagged && _session.Value.BaggedPlayers != null)
+        {
+            // Ensure bag only contains players that are in the session
+            _session.Value.BaggedPlayers = new Queue<SessionPlayer>(
+                _session.Value.BaggedPlayers.Where(p => _session.Value.Players.Contains(p))
+            );
+
+            // Add new players to bag
+            foreach (var player in addedPlayers)
+            {
+                var list = _session.Value.BaggedPlayers.ToList();
+                list.Add(player);
+                _session.Value.BaggedPlayers = new Queue<SessionPlayer>(list);
+            }
+        }
+
+        // If the next player was removed, choose a new one.
+        if (_session.Value.NextPlayer != null && !_session.Value.Players.Contains(_session.Value.NextPlayer))
+            RollNextPlayer();
+
+        _session.Changed();
+    }
+
+    public async Task<ShufflerSession> UpdatePreset(ShufflerPreset preset)
+    {
+        if (_session.Value.Preset?.Id != preset.Id)
+            throw new InvalidOperationException("Cannot update preset, current preset id does not match");
+
+        var currentPreset = _session.Value.Preset!;
+        currentPreset.Name = preset.Name;
+        currentPreset.MinShuffleTime = preset.MinShuffleTime;
+        currentPreset.MaxShuffleTime = preset.MaxShuffleTime;
+        currentPreset.Games = preset.Games;
+
+        // Remove games that were removed from the preset
+        _session.Value.Games = _session.Value.Games.Where(g =>
+            preset.Games.Any(ig => ig.GameConfig.Id == g.GameConfig.Id)).ToList();
+        
+        // Reset play time for all games
+        foreach (var game in _session.Value.Games)
+            game.TotalPlayTime = TimeSpan.Zero;
+        
+        var addedGames = preset.Games.Where(g =>
+            _session.Value.Games.All(ig => ig.GameConfig.Id != g.GameConfig.Id)).ToList();
+        
+        if (addedGames.Any())
+        {
+            var processes = await GetProcesses();
+            foreach (var game in addedGames)
+            {
+                var process = processes.TryGetValue(game.GameConfig.ExePath, out var p) ? p.FirstOrDefault() : null;
+                var gameProcess = new GameProcess(game.GameConfig, _processMonitor, true);
+                await gameProcess.ConnectToExistingProcess(process, _initCts.Token);
+
+                var sessionGame = new SessionGame
+                {
+                    GameConfig = game.GameConfig,
+                    Process = gameProcess
+                };
+
+                _session.Value.Games.Add(sessionGame);
+            }
+        }
+
+        if (_session.Value.Preset?.GameSwitchMode == SwitchMode.Bagged && _session.Value.BaggedGames != null)
+        {
+            // Ensure bag only contains games that are in the session
+            _session.Value.BaggedGames = new Queue<SessionGame>(
+                _session.Value.BaggedGames.Where(g => _session.Value.Games.Contains(g))
+            );
+
+            // Add new games to bag
+            foreach (var game in addedGames)
+            {
+                var list = _session.Value.BaggedGames.ToList();
+                list.Add(_session.Value.Games.First(g => g.GameConfig.Id == game.GameConfig.Id));
+                _session.Value.BaggedGames = new Queue<SessionGame>(list);
+            }
+        }
+
+        // If the next game was removed, choose a new one. 
+        if (_session.Value.NextGame != null && !_session.Value.Games.Contains(_session.Value.NextGame))
+            RollNextGame();
+
+        _session.Changed();
+        return _session.Value;
+    }
+    
     public async Task<ShufflerSession> LoadPreset(ShufflerPreset preset)
     {
         if (_state.Value != ShufflerState.Stopped)
@@ -97,35 +236,16 @@ public class ShufflerCore : IDisposable
                 Games = preset.Games.Select(game => new SessionGame
                 {
                     GameConfig = game.GameConfig,
-                    Process = new GameProcess(game.GameConfig, _processMonitor),
+                    Process = new GameProcess(game.GameConfig, _processMonitor, true),
                 }).ToList()
             };
 
-            // Move CPU-bound process scanning to a background thread
-            var processes = await Task.Run(() =>
-            {
-                var processDict = new Dictionary<string, List<Process>>();
-                foreach (var process in Process.GetProcesses())
-                {
-                    try
-                    {
-                        if (process.MainModule == null) continue;
-                        var key = process.MainModule.FileName;
-                        if (!processDict.ContainsKey(key))
-                            processDict[key] = [];
-                        processDict[key].Add(process);
-                    }
-                    catch
-                    {
-                        // ignored
-                    }
-                }
-                return processDict;
-            });
-
+            var processes = await GetProcesses();
             foreach (var game in session.Games)
-                if (processes.TryGetValue(game.Process.Config.ExePath, out var process))
-                    await game.Process.ConnectToExistingProcess(process.First(), _initCts.Token);
+            {
+                processes.TryGetValue(game.Process.Config.ExePath, out var process);
+                await game.Process.ConnectToExistingProcess(process?.First(), _initCts.Token);
+            }
 
             _session.Value = session;
             return session;
@@ -136,23 +256,107 @@ public class ShufflerCore : IDisposable
         }
     }
 
-    public void AddPlayer(PlayerConfig player)
+    private void RollNextGame()
     {
-        _session.Value.Players.Add(new SessionPlayer
-        {
-            Config = player
-        });
+        // TODO: 
+        // var runningGames = _session.Value.Games.Where(g => g.Process.State.Value != GameState.Stopped).ToList();
+        var runningGames = _session.Value.Games.Where(g => g.GameConfig.Id != _session.Value.CurrentGame?.GameConfig.Id)
+            .ToList();
+        if (!runningGames.Any()) return;
+
+        var (nextGame, baggedGames) = RollNext(
+            runningGames,
+            _session.Value.Preset?.GameSwitchMode,
+            _session.Value.CurrentGame,
+            g => g.TotalPlayTime,
+            _session.Value.BaggedGames);
+
+        _session.Value.NextGame = nextGame;
+        _session.Value.BaggedGames = baggedGames;
         _session.Changed();
     }
 
-    public void RemovePlayer(SessionPlayer player)
+    private void RollNextPlayer()
     {
-        if (player.AssignedController != null)
-            UnassignController(player);
+        var activePlayers = _session.Value.Players
+            .Where(p => p.IsActive && p.Config.Name != _session.Value.CurrentPlayer?.Config.Name).ToList();
+        if (!activePlayers.Any()) return;
 
-        _session.Value.Players.Remove(player);
+        var (nextPlayer, baggedPlayers) = RollNext(
+            activePlayers,
+            _session.Value.Preset?.PlayerSwitchMode,
+            _session.Value.CurrentPlayer,
+            p => p.TotalPlayTime,
+            _session.Value.BaggedPlayers);
+
+        _session.Value.NextPlayer = nextPlayer;
+        _session.Value.BaggedPlayers = baggedPlayers;
         _session.Changed();
-        Reset();
+    }
+
+    private (T next, Queue<T>? baggedItems) RollNext<T>(
+        List<T> items,
+        SwitchMode? mode,
+        T? current,
+        Func<T, TimeSpan> getPlayTime,
+        Queue<T>? baggedItems) where T : class
+    {
+        T? next = null;
+        Queue<T>? updatedBaggedItems = baggedItems;
+
+        switch (mode)
+        {
+            case SwitchMode.Random:
+                next = items[Random.Shared.Next(items.Count())];
+                break;
+            case SwitchMode.Sequential:
+                var currentIndex = current != null ? items.IndexOf(current) : -1;
+                next = items[(currentIndex + 1) % items.Count()];
+                break;
+            case SwitchMode.LeastPlayed:
+                next = items.OrderBy(getPlayTime).First();
+                break;
+            case SwitchMode.Bagged:
+                if (updatedBaggedItems != null)
+                    updatedBaggedItems = new Queue<T>(updatedBaggedItems.Where(items.Contains));
+
+                if (updatedBaggedItems == null || !updatedBaggedItems.Any())
+                    updatedBaggedItems = new Queue<T>(items.OrderBy(x => Random.Shared.Next()));
+
+                next = updatedBaggedItems.Dequeue();
+                break;
+            default:
+                next = items[Random.Shared.Next(items.Count())];
+                break;
+        }
+
+        return (next, mode == SwitchMode.Bagged ? updatedBaggedItems : null);
+    }
+
+    private async Task<Dictionary<string, List<Process>>> GetProcesses()
+    {
+        // TODO: Just keep this up to date with our watches
+        return await Task.Run(() =>
+        {
+            var processDict = new Dictionary<string, List<Process>>();
+            foreach (var process in Process.GetProcesses())
+            {
+                try
+                {
+                    if (process.MainModule == null) continue;
+                    var key = process.MainModule.FileName;
+                    if (!processDict.ContainsKey(key))
+                        processDict[key] = [];
+                    processDict[key].Add(process);
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            return processDict;
+        });
     }
 
     public void StartAsync()
@@ -262,13 +466,6 @@ public class ShufflerCore : IDisposable
     {
         _playerQueue.Clear();
         RefillPlayerQueue();
-    }
-
-    public void TogglePlayerActive(SessionPlayer player)
-    {
-        player.IsActive = !player.IsActive;
-        _session.Changed();
-        Reset();
     }
 
     public void Dispose()

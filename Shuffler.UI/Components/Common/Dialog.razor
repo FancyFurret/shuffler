@@ -38,12 +38,13 @@
 
 @if (_isVisible)
 {
-    <ClickBlocker OnClick="OnBackdropClick" Class="bg-black/50 backdrop-blur-sm" ZIndex="z-5"/>
+    <ClickBlocker OnClick="OnBackdropClick" Class="bg-black/50 backdrop-blur-sm" ZIndex="z-5"
+                  ContentElement="ContentRef"/>
     <PortalContent>
         <div class="fixed inset-0 z-40" @onkeydown="OnKeyDown" tabindex="-1" @ref="_containerRef"
              @attributes="@(new Dictionary<string, object> { { "autofocus", true } })">
             <div class="flex items-center justify-center min-h-screen p-4">
-                <div @ref="_contentRef" @onclick:stopPropagation
+                <div @ref="ContentRef" @onclick:stopPropagation
                      class="w-full @MaxWidth bg-background-800 border border-background-600 rounded-lg shadow-xl dialog-content">
                     @if (!string.IsNullOrEmpty(Title))
                     {
@@ -68,9 +69,19 @@
 
     private bool _isVisible;
     private bool _needsFocus;
-    private ElementReference? _contentRef;
     private ElementReference? _containerRef;
     private TaskCompletionSource? _showTaskCompletionSource;
+
+    // Ensure the content ref gets set in the ClickBlocker
+    private ElementReference? ContentRef
+    {
+        get;
+        set
+        {
+            field = value;
+            StateHasChanged();
+        }
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -102,9 +113,9 @@
     {
         if (!_isVisible) return;
 
-        if (_contentRef.HasValue)
+        if (ContentRef.HasValue)
         {
-            await _contentRef.Value.TryAddClass("closing", Js);
+            await ContentRef.Value.TryAddClass("closing", Js);
             await Task.Delay(200);
         }
 

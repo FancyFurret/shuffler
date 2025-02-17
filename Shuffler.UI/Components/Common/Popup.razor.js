@@ -1,5 +1,11 @@
-export function positionContent(content, marker, x, y) {
-  console.log("positionContent called with:", { content, marker, x, y });
+export function positionContent(content, marker, x, y, positionPriority) {
+  console.log("positionContent called with:", {
+    content,
+    marker,
+    x,
+    y,
+    positionPriority,
+  });
 
   if (!content) {
     console.log("Content element is null, returning");
@@ -41,34 +47,68 @@ export function positionContent(content, marker, x, y) {
       return;
     }
 
-    // Try positions in order: right-up, left-up, right-down, left-down
-    const positions = [
-      // Right-up
-      {
-        left: referencePoint.right,
-        top: referencePoint.top - parentRect.height - gap,
-        origin: "bottom left",
-      },
-      // Left-up
-      {
-        left: referencePoint.right - parentRect.width,
-        top: referencePoint.top - parentRect.height - gap,
-        origin: "bottom right",
-      },
-      // Right-down
-      {
-        left: referencePoint.right,
+    // Define position configurations
+    const positionConfigs = {
+      "bottom-left": {
+        left: referencePoint.left,
         top: referencePoint.bottom + gap,
         origin: "top left",
       },
-      // Left-down
-      {
+      "top-left": {
+        left: referencePoint.left,
+        top: referencePoint.top - parentRect.height - gap,
+        origin: "bottom left",
+      },
+      "bottom-right": {
         left: referencePoint.right - parentRect.width,
         top: referencePoint.bottom + gap,
         origin: "top right",
       },
-    ];
+      "top-right": {
+        left: referencePoint.right - parentRect.width,
+        top: referencePoint.top - parentRect.height - gap,
+        origin: "bottom right",
+      },
+      "right-up": {
+        left: referencePoint.right + gap,
+        top: referencePoint.top,
+        origin: "top left",
+      },
+      "left-up": {
+        left: referencePoint.left - parentRect.width - gap,
+        top: referencePoint.top,
+        origin: "top right",
+      },
+      "right-down": {
+        left: referencePoint.right + gap,
+        top: referencePoint.bottom - parentRect.height,
+        origin: "bottom left",
+      },
+      "left-down": {
+        left: referencePoint.left - parentRect.width - gap,
+        top: referencePoint.bottom - parentRect.height,
+        origin: "bottom right",
+      },
+    };
 
+    // Default position order
+    let positionOrder = ["right-up", "left-up", "right-down", "left-down"];
+
+    // Custom position orders
+    const positionOrders = {
+      select: ["bottom-left", "top-left", "bottom-right", "top-right"],
+      // Add more custom orders as needed
+    };
+
+    // Use custom position order if specified
+    if (positionPriority && positionOrders[positionPriority]) {
+      positionOrder = positionOrders[positionPriority];
+    }
+
+    console.log("Using position order:", positionOrder);
+
+    // Try positions in specified order
+    const positions = positionOrder.map((key) => positionConfigs[key]);
     console.log("Calculated possible positions:", positions);
 
     // Find the first position that fits in the viewport

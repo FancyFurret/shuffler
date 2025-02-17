@@ -1,9 +1,9 @@
 using System.Collections.Concurrent;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Discord;
 using Discord.WebSocket;
-using Microsoft.Extensions.Logging;
 using Shuffler.Core;
 using ILogger = Shuffler.Core.ILogger;
 

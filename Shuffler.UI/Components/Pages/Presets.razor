@@ -42,6 +42,29 @@
                     </div>
                 </Template>
             </DataGridColumn>
+            <DataGridColumn Title="Game Switch Mode">
+                <Template>
+                    <div class="text-sm group relative">
+                        @context.GameSwitchMode.GetDisplayName()
+                        <div
+                            class="hidden group-hover:block absolute z-50 bottom-full mb-2 p-2 bg-background-800 rounded shadow-lg text-sm w-64">
+                            @context.GameSwitchMode.GetDescription()
+                        </div>
+                    </div>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Player Switch Mode">
+                <Template>
+                    <div class="text-sm group relative">
+                        @context.PlayerSwitchMode.GetDisplayName()
+                        <div
+                            class="hidden group-hover:block absolute z-50 bottom-full mb-2 p-2 bg-background-800 rounded shadow-lg text-sm w-64">
+                            @context.PlayerSwitchMode.GetDescription()
+                        </div>
+                    </div>
+                </Template>
+            </DataGridColumn>
+            <DataGridColumn Title="Show Next Up" Property="@(p => p.ShowNextUpcoming)" />
         </ChildContent>
     </DataGrid>
 </PageContent>

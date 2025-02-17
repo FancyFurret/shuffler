@@ -40,9 +40,9 @@
 
 @if (_isVisible)
 {
-    <ClickBlocker OnClick="Hide" ZIndex="z-40" />
+    <ClickBlocker OnClick="Hide" ZIndex="z-40" AllowClickThrough="AllowClickThrough" ContentElement="ContentRef"/>
     <PortalContent>
-        <div class="relative z-50 positioned-overlay-content" @ref="_contentRef">
+        <div class="relative z-50 positioned-overlay-content" @ref="ContentRef">
             @ChildContent
         </div>
     </PortalContent>
@@ -51,14 +51,26 @@
 @code {
     [Parameter] public required RenderFragment ChildContent { get; set; }
     [Parameter] public string? CustomAnimationClass { get; set; }
+    [Parameter] public string? PositionPriority { get; set; }
+    [Parameter] public bool AllowClickThrough { get; set; } = true;
 
     private IJSObjectReference? _module;
     private ElementReference? _marker;
-    private ElementReference? _contentRef;
     private bool _isVisible;
     private bool _needsPositionUpdate;
     private int? _x;
     private int? _y;
+
+// Ensure the content ref gets set in the ClickBlocker
+    private ElementReference? ContentRef
+    {
+        get;
+        set
+        {
+            field = value;
+            StateHasChanged();
+        }
+    }
 
     public void Toggle()
     {
@@ -92,9 +104,9 @@
     {
         if (!_isVisible) return;
 
-        if (_contentRef.HasValue)
+        if (ContentRef.HasValue)
         {
-            await _contentRef.Value.TryAddClass(CustomAnimationClass ?? "closing", Js);
+            await ContentRef.Value.TryAddClass(CustomAnimationClass ?? "closing", Js);
             await Task.Delay(100);
         }
 
@@ -109,7 +121,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (_isVisible && _contentRef.HasValue && _needsPositionUpdate)
+        if (_isVisible && ContentRef.HasValue && _needsPositionUpdate)
         {
             await UpdatePosition();
             _needsPositionUpdate = false;
@@ -118,8 +130,8 @@
 
     private async Task UpdatePosition()
     {
-        if (_module != null && _contentRef.HasValue && _marker.HasValue)
-            await _module.InvokeVoidAsync("positionContent", _contentRef, _marker, _x, _y);
+        if (_module != null && ContentRef.HasValue && _marker.HasValue)
+            await _module.InvokeVoidAsync("positionContent", ContentRef, _marker, _x, _y, PositionPriority);
         _x = null;
         _y = null;
     }
@@ -132,4 +144,5 @@
         if (_module is not null)
             await _module.DisposeAsync();
     }
+
 }

@@ -1,0 +1,41 @@
+@using Shuffler.Core
+@using Blazor.Heroicons
+@using Shuffler.UI.Overlay
+@using static Shuffler.UI.Components.Common.StyledButton
+@inherits ObserverComponent
+@inject ShufflerCore Shuffler
+@inject OverlayService Overlay
+@inject ShufflerConfig Config
+
+<div class="mt-auto">
+    @if (State != ShufflerState.Stopped)
+    {
+        <SessionPreview />
+    }
+
+    <div class="flex gap-2">
+        @if (State == ShufflerState.Stopped)
+        {
+            <StyledButton Text="Start" Icon="play" Size="ButtonSize.Large"
+                Class="flex-grow bg-green-500/90 hover:bg-green-600/90 backdrop-blur-sm" OnClick="Shuffler.StartAsync" />
+        }
+        @if (State == ShufflerState.Paused)
+        {
+            <StyledButton Text="Resume" Icon="play" Size="ButtonSize.Large"
+                Class="flex-grow bg-green-500/90 hover:bg-green-600/90 backdrop-blur-sm" OnClick="Shuffler.StartAsync" />
+            <StyledButton Icon="stop" Size="ButtonSize.Large"
+                Class="bg-red-500/90 hover:bg-red-600/90 backdrop-blur-sm w-[44px]" OnClick="Shuffler.StopAsync" />
+        }
+        @if (State == ShufflerState.Started)
+        {
+            <StyledButton Text="Stop" Icon="stop" Size="ButtonSize.Large"
+                Class="flex-grow bg-red-500/90 hover:bg-red-600/90 backdrop-blur-sm" OnClick="Shuffler.StopAsync" />
+            <StyledButton Icon="pause" Size="ButtonSize.Large"
+                Class="bg-yellow-500/90 hover:bg-yellow-600/90 backdrop-blur-sm w-[44px]" OnClick="Shuffler.Pause" />
+        }
+    </div>
+</div>
+
+@code {
+    private ShufflerState State => Observe(Shuffler.State);
+}

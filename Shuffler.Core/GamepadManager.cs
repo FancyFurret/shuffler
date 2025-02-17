@@ -57,21 +57,6 @@ public class GamepadManager : IDisposable
         return allControllers.Where(c => !assignedControllerIds.Contains(c.Id));
     }
 
-    public bool AssignController(SessionPlayer player, ShufflerController controller, IEnumerable<SessionPlayer> allPlayers)
-    {
-        // Check if controller is already assigned to another player
-        if (allPlayers.Any(p => p != player && p.AssignedController?.Id == controller.Id))
-            return false;
-
-        player.AssignedController = controller;
-        return true;
-    }
-
-    public void UnassignController(SessionPlayer player)
-    {
-        player.AssignedController = null;
-    }
-
     private IEnumerable<ShufflerController> ListControllers()
     {
         var controllers = new List<ShufflerController>();
