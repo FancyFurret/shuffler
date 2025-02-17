@@ -8,25 +8,25 @@
         <Platforms>x64</Platforms>
     </PropertyGroup>
 
-    <!-- Build both x86 and x64 versions of the Hook -->
-    <Target Name="BuildHookConfigurations" BeforeTargets="Build">
-        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"
-                 Properties="Configuration=$(Configuration);Platform=x64;"
-                 Targets="Build" />
-        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"
-                 Properties="Configuration=$(Configuration);Platform=Win32;"
-                 Targets="Build" />
-    </Target>
-    
-    <!-- Build both x86 and x64 versions of the Injector -->
-    <Target Name="BuildInjectorConfigurations" BeforeTargets="Build">
-        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"
-                 Properties="Configuration=$(Configuration);Platform=x64;"
-                 Targets="Build" />
-        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"
-                 Properties="Configuration=$(Configuration);Platform=x86;"
-                 Targets="Build" />
-    </Target>
+<!--    &lt;!&ndash; Build both x86 and x64 versions of the Hook &ndash;&gt;-->
+<!--    <Target Name="BuildHookConfigurations" BeforeTargets="Build">-->
+<!--        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"-->
+<!--                 Properties="Configuration=$(Configuration);Platform=x64;"-->
+<!--                 Targets="Build" />-->
+<!--        <MSBuild Projects="..\Shuffler.Hook\Shuffler.Hook.vcxproj"-->
+<!--                 Properties="Configuration=$(Configuration);Platform=Win32;"-->
+<!--                 Targets="Build" />-->
+<!--    </Target>-->
+<!--    -->
+<!--    &lt;!&ndash; Build both x86 and x64 versions of the Injector &ndash;&gt;-->
+<!--    <Target Name="BuildInjectorConfigurations" BeforeTargets="Build">-->
+<!--        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"-->
+<!--                 Properties="Configuration=$(Configuration);Platform=x64;"-->
+<!--                 Targets="Build" />-->
+<!--        <MSBuild Projects="..\Shuffler.Hook.Injector\Shuffler.Hook.Injector.csproj"-->
+<!--                 Properties="Configuration=$(Configuration);Platform=x86;"-->
+<!--                 Targets="Build" />-->
+<!--    </Target>-->
 
     <ItemGroup>
         <None Include="$(SolutionDir)x64\$(Configuration)\Shuffler.Hook64.dll" CopyToOutputDirectory="Always" />

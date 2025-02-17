@@ -53,13 +53,13 @@ public class ShufflerCore : IDisposable
             await LoadPreset(ShufflerPreset.Default());
 
 
-        _state.Value = ShufflerState.Started; // TODO
-        RollNextGame();
-        RollNextPlayer();
-        _session.Value.CurrentGame = _session.Value.NextGame;
-        _session.Value.CurrentPlayer = _session.Value.NextPlayer;
-        RollNextGame();
-        RollNextPlayer();
+        // _state.Value = ShufflerState.Started; // TODO
+        // RollNextGame();
+        // RollNextPlayer();
+        // _session.Value.CurrentGame = _session.Value.NextGame;
+        // _session.Value.CurrentPlayer = _session.Value.NextPlayer;
+        // RollNextGame();
+        // RollNextPlayer();
     }
 
     public async Task AssignController(SessionPlayer player, ShufflerController controller)

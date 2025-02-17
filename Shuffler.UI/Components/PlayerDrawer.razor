@@ -3,7 +3,8 @@
 @using Blazor.Heroicons
 @using Shuffler.UI.Services
 @inject ShufflerCore Core
-@inject HomeStateService HomeState
+@inject ShufflerConfig Config
+@inject ConfigurationService ConfigService
 
 <div class="w-80 border-l border-background-700/50 backdrop-blur-xl bg-background-900/60 flex flex-col">
     <div class="flex-shrink-0 p-6 pb-3 border-b border-background-700/50">
@@ -40,15 +41,15 @@
             if (config != null)
             {
                 Core.AddPlayer(config);
-                HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
+                await UpdateLastUsedPlayers();
             }
         }
     }
 
-    private void RemovePlayer(SessionPlayer player)
+    private async Task RemovePlayer(SessionPlayer player)
     {
         Core.RemovePlayer(player);
-        HomeState.UpdateLastUsedPlayers(Session.Players.Select(p => p.Config));
+        await UpdateLastUsedPlayers();
     }
 
     private void TogglePlayerActive(SessionPlayer player)
@@ -59,6 +60,12 @@
     private void SwapPlayer(SessionPlayer player, PlayerConfig newConfig)
     {
         Core.SwapPlayer(player, newConfig);
+    }
+    
+    private async Task UpdateLastUsedPlayers()
+    {
+        Config.LastUsedPlayerNames = Session.Players.Select(p => p.Config.Name).ToList();
+        await ConfigService.SaveAsync(Config);
     }
 
 }

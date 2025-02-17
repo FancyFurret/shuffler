@@ -43,7 +43,7 @@ static class Program
         services.AddSingleton<GamepadManager>();
         services.AddSingleton<ShufflerCore>();
         services.AddScoped<ConfirmService>();
-        services.AddSingleton<HomeStateService>();
+        services.AddSingleton<EditPresetService>();
 
         var serviceProvider = services.BuildServiceProvider();
 

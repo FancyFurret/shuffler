@@ -44,7 +44,27 @@ public class ShufflerPreset : IValidatableObject
             );
         }
     }
-    
+
+    public ShufflerPreset Duplicate()
+    {
+        return new ShufflerPreset
+        {
+            Id = Id,
+            Name = Name,
+            MinShuffleTime = MinShuffleTime,
+            MaxShuffleTime = MaxShuffleTime,
+            GameSwitchMode = GameSwitchMode,
+            PlayerSwitchMode = PlayerSwitchMode,
+            ShowNextUpcoming = ShowNextUpcoming,
+            Games = Games.Select(g => new PresetGame
+            {
+                GameConfig = g.GameConfig,
+                MinShuffleTime = g.MinShuffleTime,
+                MaxShuffleTime = g.MaxShuffleTime
+            }).ToList()
+        };
+    }
+
     public static ShufflerPreset Default()
     {
         return new ShufflerPreset
