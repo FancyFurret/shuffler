@@ -29,11 +29,13 @@
             </div>
             <div class="flex items-center gap-2">
                 <StyledButton Icon="folder-open" IconType="HeroiconType.Solid" Variant="ButtonVariant.Default"
-                              OnClick="ShowLoadPresetDialog">
+                              OnClick="ShowLoadPresetDialog" Disabled="!IsStopped"
+                              Title="@(!IsStopped ? "Cannot load presets while shuffler is running" : null)">
                     Load Preset
                 </StyledButton>
                 <StyledButton Icon="plus" IconType="HeroiconType.Solid" Variant="ButtonVariant.Default"
-                              OnClick="ShowNewPresetDialog">
+                              OnClick="ShowNewPresetDialog" Disabled="!IsStopped"
+                              Title="@(!IsStopped ? "Cannot create new presets while shuffler is running" : null)">
                     New Preset
                 </StyledButton>
                 <StyledButton Icon="@(HasChanges ? "paper-airplane" : "check")" IconType="HeroiconType.Solid"
@@ -221,6 +223,7 @@
 
     private ShufflerPreset CurrentPreset => EditPreset.CurrentPreset;
     private bool HasChanges => EditPreset.HasChanges;
+    private bool IsStopped => Observe(Shuffler.State) == ShufflerState.Stopped;
 
     private DialogForm<PresetGame>? _gameTimeDialog;
     private DialogForm<PresetNameModel>? _presetNameDialog;
@@ -269,6 +272,7 @@
             Config.Presets.Add(presetToSave);
 
         await ConfigService.SaveAsync(Config);
+        EditPreset.MarkSaved();
     }
 
     private async Task AddGame(MouseEventArgs args)

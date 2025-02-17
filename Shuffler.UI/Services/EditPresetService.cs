@@ -62,6 +62,12 @@ public class EditPresetService
         HasChanges = true;
         _ = _core.UpdatePreset(CurrentPreset);
     }
+    
+    public void MarkSaved()
+    {
+        _savedPreset = CurrentPreset.Duplicate();
+        HasChanges = false;
+    }
 
     public void RevertChanges()
     {
