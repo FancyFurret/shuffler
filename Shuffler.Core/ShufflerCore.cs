@@ -19,9 +19,6 @@ public class ShufflerCore : IDisposable
     public IObservable<ShufflerState> State => _state;
     public bool IsRunning => _state.Value != ShufflerState.Stopped;
 
-    private readonly Observable<bool> _isLoading = new(true);
-    public IObservable<bool> IsLoading => _isLoading;
-
     private readonly ShufflerConfig _config;
     private readonly GamepadManager _gamepadManager;
 
@@ -37,7 +34,6 @@ public class ShufflerCore : IDisposable
     {
         _config = config;
         _gamepadManager = gamepadManager;
-        _isLoading.Value = true;
         _ = Init();
     }
 
@@ -57,14 +53,13 @@ public class ShufflerCore : IDisposable
             await LoadPreset(ShufflerPreset.Default());
 
 
-        _state.Value = ShufflerState.Started;
+        _state.Value = ShufflerState.Started; // TODO
         RollNextGame();
         RollNextPlayer();
         _session.Value.CurrentGame = _session.Value.NextGame;
         _session.Value.CurrentPlayer = _session.Value.NextPlayer;
         RollNextGame();
         RollNextPlayer();
-        _isLoading.Value = false;
     }
 
     public async Task AssignController(SessionPlayer player, ShufflerController controller)
@@ -169,30 +164,31 @@ public class ShufflerCore : IDisposable
         // Remove games that were removed from the preset
         _session.Value.Games = _session.Value.Games.Where(g =>
             preset.Games.Any(ig => ig.GameConfig.Id == g.GameConfig.Id)).ToList();
-        
+
         // Reset play time for all games
         foreach (var game in _session.Value.Games)
             game.TotalPlayTime = TimeSpan.Zero;
-        
+
         var addedGames = preset.Games.Where(g =>
             _session.Value.Games.All(ig => ig.GameConfig.Id != g.GameConfig.Id)).ToList();
         
-        if (addedGames.Any())
+        // Add the new games to the session
+        var addedSessionGames = addedGames.Select(g => new SessionGame
+        {
+            GameConfig = g.GameConfig,
+            Process = new GameProcess(g.GameConfig, _processMonitor, true)
+        }).ToList();
+        _session.Value.Games.AddRange(addedSessionGames);
+        
+        _session.Changed(); // Let the UI know that the preset was updated
+
+        if (addedSessionGames.Any())
         {
             var processes = await GetProcesses();
-            foreach (var game in addedGames)
+            foreach (var game in addedSessionGames)
             {
                 var process = processes.TryGetValue(game.GameConfig.ExePath, out var p) ? p.FirstOrDefault() : null;
-                var gameProcess = new GameProcess(game.GameConfig, _processMonitor, true);
-                await gameProcess.ConnectToExistingProcess(process, _initCts.Token);
-
-                var sessionGame = new SessionGame
-                {
-                    GameConfig = game.GameConfig,
-                    Process = gameProcess
-                };
-
-                _session.Value.Games.Add(sessionGame);
+                await game.Process.ConnectToExistingProcess(process, _initCts.Token);
             }
         }
 
@@ -216,44 +212,41 @@ public class ShufflerCore : IDisposable
         if (_session.Value.NextGame != null && !_session.Value.Games.Contains(_session.Value.NextGame))
             RollNextGame();
 
-        _session.Changed();
+        _session.Changed(); // Once all the games have loaded, let the UI know that the preset was updated
+        
         return _session.Value;
     }
-    
+
     public async Task<ShufflerSession> LoadPreset(ShufflerPreset preset)
     {
         if (_state.Value != ShufflerState.Stopped)
             throw new InvalidOperationException("Cannot load preset while shuffler is running");
 
-        _isLoading.Value = true;
-        try
+        var previousSession = _session.Value;
+        var session = new ShufflerSession
         {
-            var previousSession = _session.Value;
-            var session = new ShufflerSession
+            Preset = preset,
+            Players = previousSession?.Players ?? [],
+            Games = preset.Games.Select(game => new SessionGame
             {
-                Preset = preset,
-                Players = previousSession?.Players ?? [],
-                Games = preset.Games.Select(game => new SessionGame
-                {
-                    GameConfig = game.GameConfig,
-                    Process = new GameProcess(game.GameConfig, _processMonitor, true),
-                }).ToList()
-            };
+                GameConfig = game.GameConfig,
+                Process = new GameProcess(game.GameConfig, _processMonitor, true),
+            }).ToList()
+        };
 
+        _session.Value = session;
+
+        if (session.Games.Any())
+        {
             var processes = await GetProcesses();
             foreach (var game in session.Games)
             {
                 processes.TryGetValue(game.Process.Config.ExePath, out var process);
                 await game.Process.ConnectToExistingProcess(process?.First(), _initCts.Token);
             }
+        }
 
-            _session.Value = session;
-            return session;
-        }
-        finally
-        {
-            _isLoading.Value = false;
-        }
+        return session;
     }
 
     private void RollNextGame()
